@@ -4,10 +4,13 @@ const { processTopic } = require('./process_topics');
 async function scrapeAndProcess() {
   // 774817 "Walking tours on google maps"
   // 509741 ORAZAL
+  // 774732 NT post
+  // 763977 "Hidden thread"
+  // 697764 "/ / / / / / / / / / / / / /"
   // Start scraping from topic number 67366
   const startingTopicNumber = 67366;
   // Set the maximum topic number you want to scrape
-  const maxTopicNumber = startingTopicNumber + 5; // You can adjust this as needed
+  const maxTopicNumber = startingTopicNumber + 10; // You can adjust this as needed
 
 
   try {
