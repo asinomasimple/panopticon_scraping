@@ -1,32 +1,41 @@
-const { scrapeTopics } = require('./scrape_topics');
-const { processTopic } = require('./process_topics');
+const { getLastTopicId, addTopicsToDb } = require('./database');
+const { fetchTopics } = require('./fetch');
+const { processTopic } = require('./process');
 
+/**
+ * Entry 
+ */
 async function scrapeAndProcess() {
-  // 774817 "Walking tours on google maps"
-  // 509741 ORAZAL
-  // 774732 NT post
-  // 763977 "Hidden thread"
-  // 697764 "/ / / / / / / / / / / / / /"
-  // Start scraping from topic number 67366
-  const startingTopicNumber = 67366;
-  // Set the maximum topic number you want to scrape
-  const maxTopicNumber = startingTopicNumber + 10; // You can adjust this as needed
+  // Get last number on database
+  const lastId = await getLastTopicId();
+  console.log(`lastTopicId ${lastId}`);
 
+  const startingTopicNumber =  lastId + 1;
+  const topicAmount = 100;
+  // Set the maximum topic number you want to scrape
+  const maxTopicNumber = startingTopicNumber + topicAmount; 
 
   try {
-    // Call the scrapeTopics function with the dataPopulator function
-    const scrapedData = await scrapeTopics(startingTopicNumber, maxTopicNumber, 10);
+    // Fetch the topics from the website
+    const fetched = await fetchTopics(startingTopicNumber, maxTopicNumber, 10);
 
-    // Use Promise.all to process the scraped data in parallel
-    const processedDataPromises = scrapedData.map(data => processTopic(data));
+    // Process the fetched topics
+    const processedDataPromises = fetched.map(data => processTopic(data));
+    const processedData = await Promise.all(processedDataPromises);
+    
+    // Add topics to database
+    addTopicsToDb(processedData);
 
-    // Wait for all processing to complete
-    const processedData =  await Promise.all(processedDataPromises)
-
-    console.log(processedData)
   } catch (error) {
-    // Handle any errors that may occur during scraping or processing
+    // Handle any errors that may occur the scraping
     console.error('An error occurred:', error);
+  }
+
+  if((startingTopicNumber+topicAmount) < 774846){
+    console.log("continue scraping")
+    scrapeAndProcess()
+  }else{
+    console.log("stop scraping")
   }
 }
 

@@ -12,10 +12,25 @@ const TYPE_NT = "nt";
  * @returns A data object
  */
 async function processTopic(response) {
-    const $ = cheerio.load(response.data);
-
     // Retrieve response url
     const responseUrl = response.request.res.responseUrl; // https://axios-http.com/docs/res_schema
+
+    // Deal with deleted topics
+    if (response.status === 404) {
+        const parts = responseUrl.split("/");
+        return {
+            id: parts[parts.length - 2],
+            user: '',
+            title: '',
+            date: '',
+            post: '',
+            status: response.status,
+            responseUrl: responseUrl,
+            topicType: 'deleted'
+        }
+    }
+
+    const $ = cheerio.load(response.data);
 
     // Check if the response url has a title (topics/id-title/) or not (topics/id/)
     const urlHasTitle = getUrlHasTitle(responseUrl);
@@ -32,7 +47,6 @@ async function processTopic(response) {
     // Get the name of the user that posted the thread or whose profile it is
     const user = $("#main > ul > li.news > dl > dd.main > div.meta > a").text().trim();
 
-
     let title;
     if (topicType == TYPE_PROFILE) {
         // Profiles don't have html titles and don't have url titles either
@@ -41,6 +55,7 @@ async function processTopic(response) {
         // Thread exceptions: 
         // The hidden thread (id: 763977) doesn't have an html title but has a url title
         // The '/////' thread (id: 697764) has an html title but doesn't have a url title
+        // https://qbn.com/topics/67880/
         title = h1 ? h1 : getTitleFromUrl(responseUrl);
     }
 
@@ -66,21 +81,18 @@ async function processTopic(response) {
 
     // If it's a profile
     if (topicType == TYPE_PROFILE) {
+
         const profileUrl = `https://qbn.com/${topic.user}/`;
+
         try {
-            // Make a GET request to the profile URL
             const response = await axios.get(profileUrl);
             topic['profile'] = processProfile(response.data)
-
-            // Check for a 404 response
-            if (response.status === 404) {
-                console.log(`404 error for id: ${topic.id}, url: ${profileUrl}`);
-            }
-
         } catch (error) {
             // Handle errors or continue scraping
-            console.error(`Error scraping profile id: ${topic.id}, url: ${profileUrl}: ${error.message}`);
+            console.error(`Error processing profile id: ${topic.id}, url: ${profileUrl}, error: ${error.message}`);
+            throw Error(error);
         }
+
     }
 
     return topic
@@ -95,7 +107,7 @@ async function processTopic(response) {
  * @returns A string with the data type
  */
 function getTopicType(ntUrl, urlHasTitle, titleFromHtml) {
-    // If it has an nt url it's an NT type post
+
     if (ntUrl != undefined) {
         return TYPE_NT;
     }
@@ -115,6 +127,8 @@ function getTopicType(ntUrl, urlHasTitle, titleFromHtml) {
  * @returns A data object
  */
 function processProfile(data) {
+
+
     const $ = cheerio.load(data)
     // Check if user is deleted
     const rip = $("#main > p:nth-child(2)").text()
@@ -122,24 +136,49 @@ function processProfile(data) {
         const ripDate = $("#main > p:nth-child(3)").text()
         return { rip: ripDate }
     }
-    // Returns "invited by" or "certified by". 
-    // Doesn't return the user that certified, user in inside an <a> tag
-    const invited = $("#main > h1 > small.invited-by").first().contents()
-        .filter(function () {
-            return this.type === 'text';
-        }).text().trim()
+    // Extract 'invited by user' or 'certified by user', blank if none.
+    const endorsement = extractEndorsement($);
+    const { endorsementStatus, endorsedBy } = extractEndorsementInfo(endorsement);
+
     const profile = {
         name: $("#main > ul.details > li.name").text().trim(),
         since: $("#main > h1 > small:nth-child(2)").text().split(' ')[1],
         location: $("#main > ul.details > li.location").text(),
-         url: $("#main > ul.details > li.url").text(),
-         avatar: $("#main > div").attr("data-url") ?? '',
-         invited: invited,
-         by: $("#main > h1 > small.invited-by > a").first().text(), // Returns the USER  in"invited by USER" or "certified by USER"
-         uncertified: $("#main > h1 > small.uncertified > a").text(),
-         bio: $("#main > ul.thread.replies > li:nth-child(1) > dl > dd").html()
+        url: $("#main > ul.details > li.url").text(),
+        avatar: $("#main > div").attr("data-url") ?? '',
+        endorsementStatus: endorsementStatus,
+        endorsedBy: endorsedBy,
+        uncertified: $("#main > h1 > small.uncertified > a").text(),
+        bio: $("#main > ul.thread.replies > li:nth-child(1) > dl > dd").html()
     }
     return profile
+}
+
+/**
+ * Extracts the text 'invited by user' or 'certified by user' from a parsed cheerio object.
+ * 
+ * @param {cheerio} $ - The cheerio parsed object.
+ * @returns {string|null} - The extracted text or null if not found.
+ */
+function extractEndorsement($) {
+    const invitedByElement = $('small.invited-by');
+    if (invitedByElement.length > 0) {
+        return invitedByElement.text();
+    }
+    return null; // Return null if the tag is not found.
+}
+
+/**
+ * Extracts the endorsement status and username from a given text.
+ * 
+ * @param {string} text - The text to parse, like "invited by username" or "certified by username".
+ * @returns {Object} - An object with 'certificationStatus' and 'certifiedBy' properties.
+ */
+function extractEndorsementInfo(text) {
+    text = text ?? '';
+    const match = text.match(/(invited|certified) by (\w+)/) || [];
+    const [_, endorsementStatus, endorsedBy] = match;
+    return { endorsementStatus: endorsementStatus || '', endorsedBy: endorsedBy || '' };
 }
 
 /**
@@ -160,9 +199,27 @@ function getUrlHasTitle(url) {
  * @param {string} url - The topic page url
  */
 function getTitleFromUrl(url) {
-    const urlPattern = /^https:\/\/(www\.)?qbn\.com\/topics\/(\d+)-([a-z0-9-]+)\/?(\?.*)?$/;
-    const match = url.match(urlPattern)
-    return match[3]
+    // Define a regular expression to match the URL pattern.
+
+    const urlPattern = /^https:\/\/(www\.)?qbn\.com\/topics\/(\d+)\/?(\?.*)?$/;
+    // Attempt to match the URL against the pattern.
+    const match = url.match(urlPattern);
+
+    if (match) {
+        // If there is a match, check if the URL ends with "/topics/123/".
+        const isTopicIdURL = url.endsWith("/topics/" + match[2] + "/");
+
+        if (isTopicIdURL) {
+            // Return the topic ID as a number.
+            return parseInt(match[2], 10);
+        } else {
+            // Return the text that follows the topic ID.
+            return match[3];
+        }
+    }
+
+    // Return null or an appropriate value for cases where there's no match.
+    return null;
 }
 
 
