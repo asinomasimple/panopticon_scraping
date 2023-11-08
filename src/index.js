@@ -24,7 +24,7 @@ async function scrapeAndProcess() {
     const processedData = await Promise.all(processedDataPromises);
     
     // Add topics to database
-    addTopicsToDb(processedData);
+    const addedToDb = await addTopicsToDb(processedData);
 
   } catch (error) {
     // Handle any errors that may occur the scraping
