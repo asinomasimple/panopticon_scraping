@@ -15,13 +15,12 @@ This project is aimed at scraping data from a website and storing it in a MySQL 
 
 ## Project Overview
 
-Web scraping is a process of extracting data from websites, and this project focuses on automating this process. The project consists of several components:
+This project scrapes a website and stores it in a database. The project consists of several components:
 
-- `check_database.js`: A script to check the database to determine the last page retrieved.
-- `retrieve_pages.js`: Responsible for fetching web pages using Axios.
-- `process_pages.js`: Parses the retrieved pages using Cheerio to extract data.
-- `send_to_database.js`: Inserts the extracted data into a MySQL database.
-- `scraper.js`: The main script that orchestrates the entire scraping process.
+- `database.js`: Checks and inserts data into a MySQL database.
+- `fetch.js`: Responsible for fetching web pages using Axios.
+- `process.js`: Parses the retrieved pages using Cheerio to extract data.
+- `index.js`: The main script that orchestrates the entire scraping process.
 
 ## Getting Started
 
