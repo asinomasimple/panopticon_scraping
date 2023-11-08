@@ -11,6 +11,50 @@ const TYPE_NT = "nt";
  * @param {object} response - The axios get response object https://axios-http.com/docs/res_schema
  * @returns A data object
  */
+async function processReply(response) {
+    const $ = cheerio.load(response.data)
+    const id = $("#main > ul.thread.replies > li > dl > dd.main > div.meta > div.flagger").attr("data-id")
+    // Go through notes
+    const notesHTML = $("#main > ul.thread.replies > li > dl > dd.notes > div > ul > li")
+    const notes = []
+    if (notesHTML != "") {
+        notesHTML.each(function () {
+            const username = $(this).find(".user").text()
+            const comment = $(this).find("span").text()
+            notes.push({ comment: comment, user: username })
+        })
+    }
+    const replyNumberString = $("#main > h2:nth-child(2) > a").text()
+    const replyNumber = replyNumberString.slice(replyNumberString.indexOf("#") + 1)
+    // Check error for topicId
+    let topicId
+    try {
+        topicId = + $("#main > h1 > a").attr("href").split("/")[2]
+    } catch (error) {
+        console.log(`Process reply cannot get topicId for reply ${response.id}`)
+        throw error
+    }
+    const reply = {
+        id: id,
+        user: $("#main > ul.thread.replies > li > dl > dd.main > div.meta > a.user").text().trim(),
+        date: new Date($("#main > ul.thread.replies > li > dl > dd.main > div.meta > a.created").attr("date")),
+        topicTitle: $("h1").text(),
+        topicId: topicId,
+        replyNumber: replyNumber,
+        post: $("#main > ul.thread.replies > li > dl > dd.main .body").html(),
+        notes: notes,
+        score: + $("#main > ul.thread.replies > li > dl > dt > span").text(),
+        status: response.status
+    }
+    return reply
+}
+
+/**
+ * Process scraped data using Cheerio.
+ *
+ * @param {object} response - The axios get response object https://axios-http.com/docs/res_schema
+ * @returns A data object
+ */
 async function processTopic(response) {
     // Retrieve response url
     const responseUrl = response.request.res.responseUrl; // https://axios-http.com/docs/res_schema
@@ -127,8 +171,6 @@ function getTopicType(ntUrl, urlHasTitle, titleFromHtml) {
  * @returns A data object
  */
 function processProfile(data) {
-
-
     const $ = cheerio.load(data)
     // Check if user is deleted
     const rip = $("#main > p:nth-child(2)").text()
@@ -223,4 +265,4 @@ function getTitleFromUrl(url) {
 }
 
 
-module.exports = { processTopic };
+module.exports = { processTopic, processReply };

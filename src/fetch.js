@@ -5,10 +5,9 @@ const axios = require('axios');
  *
  * @param {number} startingTopicNumber - The topic number to start scraping from.
  * @param {number} maxTopicNumber - The maximum topic number to scrape up to.
- * @param {number} consecutive404Threshold - The threshold for consecutive 404 responses.
  * @returns {Array} An array of scraped data for each topic.
  */
-async function fetchTopics(startingTopicNumber, maxTopicNumber, consecutive404Threshold) {
+async function fetchTopics(startingTopicNumber, maxTopicNumber) {
     const scrapedData = []; // Initialize an array to store scraped data
 
     for (let topicNumber = startingTopicNumber; topicNumber <= maxTopicNumber; topicNumber++) {
@@ -24,7 +23,7 @@ async function fetchTopics(startingTopicNumber, maxTopicNumber, consecutive404Th
 
             // Add the topicData object to the scrapedData array
             scrapedData.push(response);
-            
+
         } catch (error) {
             // Handle errors or continue scraping
             console.error(`Error fetching topic number ${topicNumber}: ${error.message}`);
@@ -34,7 +33,39 @@ async function fetchTopics(startingTopicNumber, maxTopicNumber, consecutive404Th
     return scrapedData; // Return the array of scraped data
 }
 
+/**
+ * Scrape topics within a specified range and return an array of scraped data.
+ *
+ * @param {string} baseUrl - The base url to use
+ * @param {number} startId - The topic number to start scraping from.
+ * @param {number} maxId - The maximum topic number to scrape up to.
+ * @returns {Array} An array of scraped data for each topic.
+ */
+async function fetchPages(baseUrl, startId, maxId) {
+    const fetchedData = []; // Initialize an array to store fetched data
 
+    for (let id = startId; id <= maxId; id++) {
+        const url = `${baseUrl}${id}/`; //  https://qbn.com/replies/1/ or https://qbn.com/topics/1/ 
+
+        try {
+            // Make a GET request to the topic URL
+            const response = await axios.get(url);
+            // Check for a 404 response
+            if (response.status === 404) {
+                console.log(` RESPONSE STATUS ${response.status}`)
+            }
+
+            // Add the page response object to the scrapedData array
+            fetchedData.push(response);
+
+        } catch (error) {
+            // Handle errors or continue scraping
+            console.error(`Error fetching id:${id} from url:${url}. Error:${error.message}`);
+            fetchedData.push(error.response);
+        }
+    }
+    return fetchedData; // Return the array of scraped data
+}
 
 /**
  * Scrape topics within a specified range and return an array of scraped data.
@@ -109,4 +140,4 @@ async function fetchTopicsFromArray(urls) {
 }
 
 // Export the fetchTopics function so it can be imported in other files
-module.exports = { fetchTopics, fetchTopicsFromArray };
+module.exports = { fetchTopics, fetchTopicsFromArray, fetchPages };
