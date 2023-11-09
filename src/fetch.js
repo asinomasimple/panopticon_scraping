@@ -1,65 +1,29 @@
 const axios = require('axios');
 
 /**
- * Scrape topics within a specified range and return an array of scraped data.
- *
- * @param {number} startingTopicNumber - The topic number to start scraping from.
- * @param {number} maxTopicNumber - The maximum topic number to scrape up to.
- * @returns {Array} An array of scraped data for each topic.
- */
-async function fetchTopics(startingTopicNumber, maxTopicNumber) {
-    const scrapedData = []; // Initialize an array to store scraped data
-
-    for (let topicNumber = startingTopicNumber; topicNumber <= maxTopicNumber; topicNumber++) {
-        const url = `https://qbn.com/topics/${topicNumber}/`;
-
-        try {
-            // Make a GET request to the topic URL
-            const response = await axios.get(url);
-            // Check for a 404 response
-            if (response.status === 404) {
-                console.log(` RESPONSE STATUS ${response.status}`)
-            }
-
-            // Add the topicData object to the scrapedData array
-            scrapedData.push(response);
-
-        } catch (error) {
-            // Handle errors or continue scraping
-            console.error(`Error fetching topic number ${topicNumber}: ${error.message}`);
-            scrapedData.push(error.response);
-        }
-    }
-    return scrapedData; // Return the array of scraped data
-}
-
-/**
- * Scrape topics within a specified range and return an array of scraped data.
- *
+ * Fetches pages within a specified range and returns an array of fetched responses.
+ * 
  * @param {string} baseUrl - The base url to use
- * @param {number} startId - The topic number to start scraping from.
- * @param {number} maxId - The maximum topic number to scrape up to.
- * @returns {Array} An array of scraped data for each topic.
+ * @param {number} startId - The page id  to start scraping from.
+ * @param {number} maxId - The maximum page id number to scrape up to.
+ * @returns {Array} An array of fetched responses for each page.
  */
 async function fetchPages(baseUrl, startId, maxId) {
     const fetchedData = []; // Initialize an array to store fetched data
 
     for (let id = startId; id <= maxId; id++) {
         const url = `${baseUrl}${id}/`; //  https://qbn.com/replies/1/ or https://qbn.com/topics/1/ 
+        console.log(`url ${url}`)
 
         try {
-            // Make a GET request to the topic URL
+            // Make a GET request to the url
             const response = await axios.get(url);
-            // Check for a 404 response
-            if (response.status === 404) {
-                console.log(` RESPONSE STATUS ${response.status}`)
-            }
 
             // Add the page response object to the scrapedData array
             fetchedData.push(response);
 
         } catch (error) {
-            // Handle errors or continue scraping
+            // Log error and continue fetching
             console.error(`Error fetching id:${id} from url:${url}. Error:${error.message}`);
             fetchedData.push(error.response);
         }
@@ -67,9 +31,8 @@ async function fetchPages(baseUrl, startId, maxId) {
     return fetchedData; // Return the array of scraped data
 }
 
-
 /**
- * Fetches pages using axios by providing an ID, continuing until encountering a specified number of consecutive 404 responses or a maximum number of total requests.
+ * Fetches pages by providing an ID, continuing until encountering a specified number of consecutive 404 responses or a maximum number of total requests.
  * 
  * @param {string} baseUrl - The url to append before the ID
  * @param {number} idToStart - The starting ID for page scraping.
@@ -107,6 +70,7 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
             if (error.response && error.response.status === 404) {
                 resultArray.push(error.response); // Add a marker for deleted page
                 consecutive404Count++;
+                idToStart++;
             } else {
                 console.error('Error:', error);
                 throw new Error(error)
@@ -116,20 +80,26 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
     }
 
     // Remove consecutive 404 markers from the end
-    while (resultArray.length > 0 && resultArray[resultArray.length - 1] === null) {
-        resultArray.pop();
+    for (let i = resultArray.length - 1; i >= 0; i--) {
+        // Stop removing 404 markers at the first valid response
+        if (resultArray[i] !== null && (resultArray[i].status !== 404)) {
+            break;
+        }
+        // Remove 404 markers from the bottom
+        if (resultArray[i] === null || (resultArray[i].status === 404)) {
+            resultArray.pop();
+        }
     }
-
     return resultArray;
 }
 
 /**
- * Scrape topics within a specified range and return an array of scraped data.
+ * Fetch pages from a list of urls and return an array of fetched responses.
  *
  * @param {array} urls - The list of urls to fetch
- * @returns {Array} An array of scraped data for each topic.
+ * @returns {Array} An array of fetched responses for each url.
  */
-async function fetchTopicsFromArray(urls) {
+async function fetchPagesFromArray(urls) {
     const scrapedData = []; // Initialize an array to store scraped data
 
     for (const url of urls) {
@@ -154,4 +124,4 @@ async function fetchTopicsFromArray(urls) {
 }
 
 // Export the fetchTopics function so it can be imported in other files
-module.exports = { fetchTopics, fetchTopicsFromArray, fetchPages, autoFetchPagesById };
+module.exports = { fetchPages, autoFetchPagesById, fetchPagesFromArray };

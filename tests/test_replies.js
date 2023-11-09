@@ -15,14 +15,19 @@ async function testScrapeReplies() {
     try {
         // Fetch the topics from the website
         const startId = lastId + 1;
-        const maxTotalRequests = 100;
-        const maxConsecutive404 = 10;
+        const maxTotalRequests = 10;
+        const maxConsecutive404 = 5;
         const fetched = await autoFetchPagesById('https:qbn.com/reply/', startId, maxTotalRequests, maxConsecutive404)
 
         // Process the fetched topics
         const processedDataPromises = fetched.map(data => processReply(data));
         const processedData = await Promise.all(processedDataPromises);
-
+        
+        if(processedData.length < 1){
+            console.log("No new entries to add");
+            return;
+        }
+        console.log(processedData)
         // Add topics to database
         const addedToDb = await addRepliesToDb(processedData);
         console.log(`${addedToDb}`)

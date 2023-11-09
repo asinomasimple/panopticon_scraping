@@ -36,6 +36,8 @@ async function addRepliesToDb(data) {
                 ]
             );
         }
+
+        console.log(`${data.length} replies inserted successfully.`);
         return 'All entries inserted successfully.';
     } catch (error) {
         throw error;
@@ -58,33 +60,41 @@ async function addTopicsToDb(data) {
             await connection.beginTransaction();
 
             for (const d of data) {
+
+
+                // Base topic, if no extra table needed it's a "thread"
                 const topicsInsertSql = 'INSERT INTO topics (id, status, title, date, post, user, topic_type) VALUES (?, ?, ?, ?, ?, ?, ?)';
                 const topicsValues = [d.id, d.status, d.title, d.date, d.post, d.user, d.topicType];
                 await connection.execute(topicsInsertSql, topicsValues);
 
+                // NT type topic
                 if (d.topicType === 'nt') {
                     const ntInsertSql = 'INSERT INTO nt (topic_id, url, thumbnail) VALUES (?, ?, ?)';
                     const ntValues = [d.id, d.ntUrl, d.ntThumbnail];
                     await connection.execute(ntInsertSql, ntValues);
                 }
 
+                // User profile topic
                 if (d.topicType === 'profile') {
                     const profile = d.profile;
-                    if (profile.rip != "") {
+                    // If profile is deleted only insert rip dates
+                    if (profile.rip != undefined) {
+                        console.log("insert rip")
                         const profileInsertSql = 'INSERT INTO profiles (topic_id, rip) VALUES (?, ?)';
                         const profileValues = [d.id, profile.rip];
-                        await connection.execute(profileInsertSql, profileValues);
+                        //await connection.execute(profileInsertSql, profileValues);
                     } else {
-                        const profileInsertSql = 'INSERT INTO profiles (topic_id, name, location, url, avatar, uncertified, endorsement_status, endorsed_by, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-                        const uncertified = d.undertified == "uncertified";
-                        const profileValues = [d.id, profile.name, profile.location, profile.url, profile.avatar, profile.uncertified, profile.endorsementStatus, profile.endorsedBy, profile.bio];
+                        console.log("insert profile")
+                        const profileInsertSql = 'INSERT INTO profiles (topic_id, name, location, url, avatar, uncertified, endorsement_status, endorsed_by, bio, rip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                        const uncertified = d.uncertified == "uncertified" ? 1 : 0;
+                        const profileValues = [d.id, profile.name, profile.location, profile.url, profile.avatar, profile.uncertified, profile.endorsementStatus, profile.endorsedBy, profile.bio, ''];
                         await connection.execute(profileInsertSql, profileValues);
                     }
                 }
             }
 
             await connection.commit();
-            console.log('Data inserted successfully.');
+            console.log(`${data.length} topics inserted successfully.`);
             resolve('Data inserted successfully.');
         } catch (error) {
             await connection.rollback();
@@ -174,9 +184,7 @@ function findUndefinedKey(obj, parentKey) {
             }
         }
     }
-
     return null;
 }
-
 
 module.exports = { getLastTopicId, getLastReplyId, addTopicsToDb, addRepliesToDb };

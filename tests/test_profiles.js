@@ -1,4 +1,4 @@
-const { fetchTopicsFromArray } = require('../src/fetch');
+const { fetchPagesFromArray } = require('../src/fetch');
 const { processTopic } = require('../src/process');
 const axios = require('axios');
 
@@ -19,25 +19,9 @@ async function testProfiles(){
     const urls = ids.map(v => (BASE_URL+v+"/"));
     console.log(`urls  ${urls}`)
 
-    const fetched = await fetchTopicsFromArray(urls);
+    const fetched = await fetchPagesFromArray(urls);
     // Process the fetched topics
     const processedDataPromises = fetched.map(data => processTopic(data));
     const processedData = await Promise.all(processedDataPromises);
     console.log(processedData);
-
 }
-
-async function testUsernameUrl(){
-    const url = 'https://qbn.com/topics/541583/';
-    try{
-        const response = await axios.get(url);
-        //console.log(response)
-        const processed = await processTopic(response)
-        console.log(processed)
-    }catch (error){
-        console.error(error);
-    }
-}
-//testProfiles()
-// testUsernameUrl()
-testUsernameUrl()

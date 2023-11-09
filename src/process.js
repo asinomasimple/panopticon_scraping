@@ -1,12 +1,14 @@
 const cheerio = require('cheerio');
 const axios = require('axios');
 
+
+// Topic types
 const TYPE_THREAD = "thread";
 const TYPE_PROFILE = "profile";
 const TYPE_NT = "nt";
 
 /**
- * Process scraped data using Cheerio.
+ * Process fetched reply response data
  *
  * @param {object} response - The axios get response object https://axios-http.com/docs/res_schema
  * @returns A data object
@@ -70,7 +72,7 @@ async function processReply(response) {
 }
 
 /**
- * Process scraped data using Cheerio.
+ * Process fetched topic response data
  *
  * @param {object} response - The axios get response object https://axios-http.com/docs/res_schema
  * @returns A data object
