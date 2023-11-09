@@ -1,6 +1,7 @@
-const { getLastReplyId, addRepliesToDb} = require('../src/database');
-const { fetchPages } = require('../src/fetch');
+const { getLastReplyId, addRepliesToDb } = require('../src/database');
+const { autoFetchPagesById } = require('../src/fetch');
 const { processReply } = require('../src/process');
+const axios = require('axios');
 
 /**
  * Entry 
@@ -10,25 +11,36 @@ async function testScrapeReplies() {
     const lastId = await getLastReplyId();
     console.log(`lastReplyId ${lastId}`);
 
-    // Start scraping after last id on db
-    const startId = lastId + 10;
-    const pageAmount = 0;
-    // Set the maximum topic number you want to scrape
-    const maxId = startId + pageAmount;
+
     try {
         // Fetch the topics from the website
-        const fetched = await fetchPages('https:qbn.com/reply/', startId, maxId);
+        const startId = lastId + 1;
+        const maxTotalRequests = 100;
+        const maxConsecutive404 = 10;
+        const fetched = await autoFetchPagesById('https:qbn.com/reply/', startId, maxTotalRequests, maxConsecutive404)
 
-         // Process the fetched topics
-         const processedDataPromises = fetched.map(data => processReply(data));
-         const processedData = await Promise.all(processedDataPromises);
-         
-         // Add topics to database
+        // Process the fetched topics
+        const processedDataPromises = fetched.map(data => processReply(data));
+        const processedData = await Promise.all(processedDataPromises);
+
+        // Add topics to database
         const addedToDb = await addRepliesToDb(processedData);
         console.log(`${addedToDb}`)
     } catch (error) {
         // Handle any errors that may occur the scraping
         console.error('An error occurred:', error);
+    }
+}
+
+async function fetchSingleReply() {
+    const url = "https:qbn.com/reply/4103546/"
+    try {
+        const response = await axios.get(url);
+        console.log(` RESPONSE STATUS ${response.status}`)
+
+    } catch (error) {
+        console.error(`Error fetching  ${url}: ${error.message}`);
+        // error.response
     }
 }
 

@@ -12,6 +12,26 @@ const TYPE_NT = "nt";
  * @returns A data object
  */
 async function processReply(response) {
+    // Retrieve response url
+    const responseUrl = response.request.res.responseUrl; // https://axios-http.com/docs/res_schema
+    // Deal with deleted topics
+    if (response.status === 404) {
+        const parts = responseUrl.split("/");
+        return {
+            id: parts[parts.length - 2],
+            user: '',
+            title: '',
+            date: '',
+            topicTitle: '',
+            topicId: '',
+            replyNumber: '',
+            post: '',
+            notes: [],
+            score: 0,
+            status: response.status
+        }
+    }
+
     const $ = cheerio.load(response.data)
     const id = $("#main > ul.thread.replies > li > dl > dd.main > div.meta > div.flagger").attr("data-id")
     // Go through notes

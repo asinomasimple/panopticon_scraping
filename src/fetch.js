@@ -67,46 +67,60 @@ async function fetchPages(baseUrl, startId, maxId) {
     return fetchedData; // Return the array of scraped data
 }
 
-/**
- * Scrape topics within a specified range and return an array of scraped data.
- *
- * @param {number} startingTopicNumber - The topic number to start scraping from.
- * @param {number} maxTopicNumber - The maximum topic number to scrape up to.
- * @param {number} consecutive404Threshold - The threshold for consecutive 404 responses.
- * @returns {Array} An array of scraped data for each topic.
- */
-async function fetchTopicsAutomated(startingTopicNumber, maxTopicNumber, consecutive404Threshold) {
-    const scrapedData = []; // Initialize an array to store scraped data
-    let consecutive404Count = 0; // Track consecutive 404 responses
 
-    for (let topicNumber = startingTopicNumber; topicNumber <= maxTopicNumber; topicNumber++) {
-        const url = `https://qbn.com/topics/${topicNumber}/`;
+/**
+ * Fetches pages using axios by providing an ID, continuing until encountering a specified number of consecutive 404 responses or a maximum number of total requests.
+ * 
+ * @param {string} baseUrl - The url to append before the ID
+ * @param {number} idToStart - The starting ID for page scraping.
+ * @param {number} maxTotalRequests - The maximum number of total requests to make.
+ * @param {number} maxConsecutive404 - The maximum number of consecutive 404 responses allowed before stopping.
+ * @returns {Promise<(string | null)[]>} - An array of scraped page data with null markers for deleted pages.
+ */
+async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConsecutive404) {
+    let resultArray = [];
+    let consecutive404Count = 0;
+    let totalRequests = 0;
+
+    while (totalRequests < maxTotalRequests && consecutive404Count < maxConsecutive404) {
+        const url = `${baseUrl}${idToStart}/`;
 
         try {
-            // Make a GET request to the topic URL
             const response = await axios.get(url);
+            totalRequests++;
 
-            // Check for a 404 response
-            if (response.status === 404) {
+            if (response.status === 200) {
+                resultArray.push(response);
+                consecutive404Count = 0; // Reset consecutive 404 count
+            } else if (response.status === 404) {
+                // Normally 404 pages shouldn't get a response but an error
+                resultArray.push(response); // Add a marker for deleted page
                 consecutive404Count++;
-                // If consecutive 404 responses reach the threshold, exit the loop
-                if (consecutive404Count >= consecutive404Threshold) {
-                    console.log(`Reached the last available topic. Exiting.`);
-                    break;
-                }
             } else {
-                // If a topic page exists, reset the consecutive 404 count
-                consecutive404Count = 0;
-
-                // Add the topicData object to the scrapedData array
-                scrapedData.push(response);
+                // Handle other HTTP status codes if needed
+                console.log(`Unexpected status code: ${response.status}`);
             }
+
+            idToStart++;
         } catch (error) {
-            // Handle errors or continue scraping
-            console.error(`Error fetching topic number ${topicNumber}: ${error.message}`);
+            // Handle the error and include the error response in the resultArray
+            if (error.response && error.response.status === 404) {
+                resultArray.push(error.response); // Add a marker for deleted page
+                consecutive404Count++;
+            } else {
+                console.error('Error:', error);
+                throw new Error(error)
+                break; // Exit loop on error
+            }
         }
     }
-    return scrapedData; // Return the array of scraped data
+
+    // Remove consecutive 404 markers from the end
+    while (resultArray.length > 0 && resultArray[resultArray.length - 1] === null) {
+        resultArray.pop();
+    }
+
+    return resultArray;
 }
 
 /**
@@ -140,4 +154,4 @@ async function fetchTopicsFromArray(urls) {
 }
 
 // Export the fetchTopics function so it can be imported in other files
-module.exports = { fetchTopics, fetchTopicsFromArray, fetchPages };
+module.exports = { fetchTopics, fetchTopicsFromArray, fetchPages, autoFetchPagesById };
