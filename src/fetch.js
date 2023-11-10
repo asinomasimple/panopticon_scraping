@@ -13,7 +13,7 @@ async function fetchPages(baseUrl, startId, maxId) {
 
     for (let id = startId; id <= maxId; id++) {
         const url = `${baseUrl}${id}/`; //  https://qbn.com/replies/1/ or https://qbn.com/topics/1/ 
-        
+
         try {
             // Make a GET request to the url
             const response = await axios.get(url);
@@ -99,27 +99,24 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
  * @returns {Array} An array of fetched responses for each url.
  */
 async function fetchPagesFromArray(urls) {
-    const scrapedData = []; // Initialize an array to store scraped data
+    const fetchedData = []; // Initialize an array to store fetched data
 
     for (const url of urls) {
-
         try {
-            console.log(`try ${url}`)
-            // Make a GET request to the topic URL
+            
             const response = await axios.get(url);
 
             // Add the topicData object to the scrapedData array
-            scrapedData.push(response);
-
-            // Log the topic number for tracking
-            console.log(`Fetched topic number: ${url}`);
+            fetchedData.push(response);
 
         } catch (error) {
-            // Handle errors or continue scraping
+            // Add errors to fetchedData 
             console.error(`Error fetching ${url}: ${error.message}`);
+            fetchedData.push(error.response);
         }
     }
-    return scrapedData; // Return the array of scraped data
+    
+    return fetchedData; // Return the array of scraped data
 }
 
 // Export the fetchTopics function so it can be imported in other files

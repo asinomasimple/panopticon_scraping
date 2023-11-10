@@ -72,6 +72,49 @@ async function processReply(response) {
 }
 
 /**
+ * Process fetched reply response data
+ * Reply is already in database, we only need to retrieve certain values
+ *
+ * @param {object} response - The axios get response object https://axios-http.com/docs/res_schema
+ * @returns A data object
+ */
+async function processUpdatedReply(response) {
+    // Retrieve response url
+    const responseUrl = response.request.res.responseUrl; // https://axios-http.com/docs/res_schema
+
+    // Deal with deleted topics
+    if (response.status === 404) {
+        const parts = responseUrl.split("/");
+        return {
+            id: parts[parts.length - 2],
+            status: response.status
+        }
+    }
+
+    const $ = cheerio.load(response.data)
+    const id = $("#main > ul.thread.replies > li > dl > dd.main > div.meta > div.flagger").attr("data-id")
+
+    // Go through notes
+    const notesHTML = $("#main > ul.thread.replies > li > dl > dd.notes > div > ul > li")
+    const notes = []
+    if (notesHTML != "") {
+        notesHTML.each(function () {
+            const username = $(this).find(".user").text()
+            const comment = $(this).find("span").text()
+            notes.push({ comment: comment, user: username })
+        })
+    }
+
+    // Build reply object with only updatable values
+    const reply = {
+        id: id,
+        notes: notes,
+        score: + $("#main > ul.thread.replies > li > dl > dt > span").text(),
+        status: response.status
+    }
+    return reply
+}
+/**
  * Process fetched topic response data
  *
  * @param {object} response - The axios get response object https://axios-http.com/docs/res_schema
@@ -288,4 +331,4 @@ function getTitleFromUrl(url) {
 }
 
 
-module.exports = { processTopic, processReply };
+module.exports = { processTopic, processReply, processUpdatedReply };

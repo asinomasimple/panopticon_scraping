@@ -1,6 +1,9 @@
 const { database } = require('../config/config');
 const mysql = require('mysql2/promise');
 
+// Create a pool
+const pool = mysql.createPool(database);
+
 /**
  * Creates the database connection
  */
@@ -46,6 +49,58 @@ async function addRepliesToDb(data) {
 }
 
 /**
+ * Updates the 'replies' table in the database based on the provided data.
+ *
+ * @param {Array} repliesToUpdate - An array of objects containing reply data to update.
+ * @returns {Promise} A promise that resolves when the updates are completed.
+ */
+async function updateRepliesInDb(replies) {
+    const connection = await pool.getConnection();
+    try {
+        for (const reply of replies) {
+            if (reply.status === 400) {
+
+                await connection.execute('UPDATE replies SET status = ? WHERE id = ?', [reply.status, reply.id]);
+
+            } else if (reply.status === 200) {
+
+                // Get existing notes in database  to keep them in case they have been deleted from the website 
+                const [existingNotesRow] = await connection.execute('SELECT notes FROM replies WHERE id = ?', [reply.id]);
+                const existingNotes = JSON.parse(existingNotesRow[0].notes);
+                const newNotes = reply.notes;
+
+                // If new notes are less in number than existing notes in database don't update notes
+                if (newNotes.length >= existingNotes.length) {
+                    const commonNotes = existingNotes.filter((note) => newNotes.find((n) => (n.comment === note.comment && n.user === note.user)));
+
+                    // In case no existing notes have been deleted go ahead and overwrite notes
+                    if (commonNotes.length === existingNotes.length) {
+
+                        await connection.execute('UPDATE replies SET notes = ?, score = ? WHERE id = ?', [JSON.stringify(newNotes), reply.score, reply.id]);
+                   
+                    } else {
+                        
+                        // If existing notes have been deleted combine notes before overwriting
+                        const combinedNotes = [...existingNotes, ...newNotes.filter((n) => !existingNotes.find((note) => (n.comment === note.comment && n.user === note.user)))];
+                        await connection.execute('UPDATE replies SET notes = ?, score = ? WHERE id = ?', [JSON.stringify(combinedNotes), reply.score, reply.id]);
+                    }
+                }
+            } else {
+                // Only update score
+                await connection.execute('UPDATE replies score = ? WHERE id = ?', [reply.score, reply.id]);
+            }
+        }
+
+        connection.release();
+        return `${replies.length} replies updated successfully!`;
+    } catch (error) {
+        connection.release();
+        console.error('Error updating replies:', error);
+        return error;
+    }
+}
+
+/**
  * Adds data objects to 'topics' table in database
  * 
  * @param {array} data Data objects with the records to insert in the db
@@ -77,7 +132,7 @@ async function addTopicsToDb(data) {
                     console.log(`insert profile ${d.user}`)
                     const profile = d.profile;
                     // If profile is deleted only insert rip dates
-                    if (profile.rip !== undefined && profile.rip !== ""){
+                    if (profile.rip !== undefined && profile.rip !== "") {
                         const profileInsertSql = 'INSERT INTO profiles (topic_id, rip) VALUES (?, ?)';
                         const profileValues = [d.id, profile.rip];
                         //await connection.execute(profileInsertSql, profileValues);
@@ -159,6 +214,31 @@ async function getLastReplyId() {
 }
 
 /**
+ * Retrieves the latest non-404 reply IDs from the 'replies' table.
+ *
+ * @param {number} numberToRetrieve - The number of non-404 reply IDs to retrieve.
+ * @returns {Promise<Array<number>>} - A promise that resolves with an array of non-404 reply IDs.
+ */
+async function getLatestNon404RepliesIds(numberToRetrieve) {
+    try {
+        const connection = await pool.getConnection();
+
+        const [rows] = await connection.execute(
+            'SELECT id FROM replies WHERE status != 404 ORDER BY id DESC LIMIT ?',
+            [numberToRetrieve]
+        );
+
+        connection.release();
+        const ids = rows.map(row => row.id);
+        return ids;
+
+    } catch (error) {
+        console.error('Error:', error);
+        return [];
+    }
+}
+
+/**
  * Recursively checks an object for `undefined` values and returns the name of the first key
  * with an `undefined` value.
  *
@@ -184,4 +264,71 @@ function findUndefinedKey(obj, parentKey) {
     return null;
 }
 
-module.exports = { getLastTopicId, getLastReplyId, addTopicsToDb, addRepliesToDb };
+
+/**
+ * NOT IMPLEMENTED YET
+ * Updates the 'notes' table in the database based on the provided data for a specific reply.
+ *
+ * @param {number} replyId - The ID of the reply associated with the notes.
+ * @param {Array} newNotes - An array of objects containing note data to update.
+ * @returns {Promise} A promise that resolves when the updates are completed.
+ */
+async function updateNotesInDb(replyId, newNotes) {
+    const connection = await pool.getConnection();
+  
+    try {
+      // Retrieve existing notes for the reply
+      const [existingNotesRow] = await connection.execute('SELECT * FROM notes WHERE reply_id = ?', [replyId]);
+      const existingNotes = existingNotesRow.map((row) => ({
+        id: row.id,
+        comment: row.comment,
+        user: row.user,
+        position: row.position,
+        status: row.status,
+      }));
+  
+      if (newNotes.length >= existingNotes.length) {
+        const commonNotes = existingNotes.filter((note) => newNotes.find((n) => n.comment === note.comment)); // comment & user
+  
+        if (commonNotes.length === existingNotes.length) {
+          // If all old notes are included in the new notes, update with the new notes
+          for (const note of newNotes) {
+            await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
+              [note.comment, note.user, note.position, note.status, note.id]);
+          }
+        } else {
+          // Combine old and new notes, keeping unique new notes
+          const combinedNotes = [
+            ...existingNotes,
+            ...newNotes.filter((n) => !existingNotes.find((note) => note.comment === n.comment)),
+          ];
+  
+          // Update the notes in the database with the combined list
+          for (const note of combinedNotes) {
+            await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
+              [note.comment, note.user, note.position, note.status, note.id]);
+          }
+        }
+      } else {
+        // If the new notes are fewer, combine both and update
+        const combinedNotes = [
+          ...existingNotes,
+          ...newNotes.filter((n) => !existingNotes.find((note) => note.comment === n.comment)),
+        ];
+  
+        // Update the notes in the database with the combined list
+        for (const note of combinedNotes) {
+          await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
+            [note.comment, note.user, note.position, note.status, note.id]);
+        }
+      }
+  
+      connection.release();
+      console.log('Notes updated successfully!');
+    } catch (error) {
+      connection.release();
+      console.error('Error updating notes:', error);
+    }
+  }
+  
+module.exports = { getLastTopicId, getLastReplyId, addTopicsToDb, addRepliesToDb, updateRepliesInDb, getLatestNon404RepliesIds };
