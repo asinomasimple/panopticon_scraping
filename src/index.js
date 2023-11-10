@@ -3,17 +3,17 @@ const { fetchPages } = require('./fetch');
 const { processTopic } = require('./process');
 
 /**
- * Entry 
+ * Entry 199735
  */
 async function scrapeAndProcess() {
   // Get last number on database
   const lastId = await getLastTopicId();
   console.log(`lastTopicId ${lastId}`);
 
-  const startingTopicNumber =  lastId ;
-  const topicAmount = 0;
+  const startingTopicNumber =  lastId + 1;
+  const topicAmount = 100; 
   // Set the maximum topic number you want to scrape
-  const maxTopicNumber = startingTopicNumber + topicAmount; 
+  const maxTopicNumber = startingTopicNumber + topicAmount - 1; 
 
   try {
     // Fetch the topics from the website
@@ -23,7 +23,6 @@ async function scrapeAndProcess() {
     const processedDataPromises = fetched.map(data => processTopic(data));
     const processedData = await Promise.all(processedDataPromises);
 
-    console.log(processedData)
     // Add topics to database
     const addedToDb = await addTopicsToDb(processedData);
 
@@ -34,7 +33,7 @@ async function scrapeAndProcess() {
 
   if((startingTopicNumber+topicAmount) < 774846){
     console.log("continue scraping")
-    //scrapeAndProcess()
+    scrapeAndProcess()
   }else{
     console.log("stop scraping")
   }

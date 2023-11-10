@@ -13,8 +13,7 @@ async function fetchPages(baseUrl, startId, maxId) {
 
     for (let id = startId; id <= maxId; id++) {
         const url = `${baseUrl}${id}/`; //  https://qbn.com/replies/1/ or https://qbn.com/topics/1/ 
-        console.log(`url ${url}`)
-
+        
         try {
             // Make a GET request to the url
             const response = await axios.get(url);

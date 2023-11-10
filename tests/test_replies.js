@@ -15,7 +15,7 @@ async function testScrapeReplies() {
     try {
         // Fetch the topics from the website
         const startId = lastId + 1;
-        const maxTotalRequests = 10;
+        const maxTotalRequests = 20;
         const maxConsecutive404 = 5;
         const fetched = await autoFetchPagesById('https:qbn.com/reply/', startId, maxTotalRequests, maxConsecutive404)
 

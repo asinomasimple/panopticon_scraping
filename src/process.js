@@ -147,8 +147,9 @@ async function processTopic(response) {
 
     // If it's a profile
     if (topicType == TYPE_PROFILE) {
-
-        const profileUrl = `https://qbn.com/${topic.user}/`;
+        // Use the url from the href for usernames with special characters
+        const constUserUrl = $("a.user").attr('href'); // <a href="/username/" class="user ">username</a>
+        const profileUrl = `https://qbn.com${constUserUrl}`;
 
         try {
             const response = await axios.get(profileUrl);
