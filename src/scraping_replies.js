@@ -2,24 +2,33 @@ const { getLastReplyId, addRepliesToDb, getLatestNon404RepliesIds, updateReplies
 const { autoFetchPagesById, fetchPagesFromArray } = require('./fetch');
 const { processReply, processUpdatedReply } = require('./process');
 
-
+/**
+ * Updates exisiting replies and then scrapes new ones
+ */
+async function execute() {
+   await updateLatestReplies(50)
+   await scrapeNewReplies(50, 5)
+    process.exit(0)
+}
 /**
  * Scrapes new replies from website
  * 1. Checks the last reply id in database
  * 2. Fetches pages automatically
  * 3. Processes fetched pages 
  * 4. Inserts new pages to database
+ * 
+ * @param {number} maxTotalRequests - The maximum number of total requests to make.
+ * @param {number} maxConsecutive404 - The maximum number of consecutive 404 responses allowed before stopping.
  */
-async function scrapeNewReplies() {
+async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
+    console.log(`Scraping new replies...`)
     // Get the last reply id in database
     const lastId = await getLastReplyId();
-    console.log(`lastReplyId ${lastId}`);
+    console.log(`Last reply id in database ${lastId}`);
 
     try {
         // Fetch the replies from the website
         const startId = lastId + 1;
-        const maxTotalRequests = 20;
-        const maxConsecutive404 = 5;
         const fetched = await autoFetchPagesById('https:qbn.com/reply/', startId, maxTotalRequests, maxConsecutive404)
 
         // Process the fetched pages
@@ -44,11 +53,13 @@ async function scrapeNewReplies() {
 
 /**
  * Updates latest replies in database
+ * 
+ *  @param {number} amount - The number of non-404 reply IDs to retrieve.
  */
-async function updateLatestReplies() {
-
+async function updateLatestReplies(amount) {
+    console.log(`updating latest ${amount} replies...`)
     // Get the latest non-404 replies
-    const latestRepliesIds = await getLatestNon404RepliesIds(300);
+    const latestRepliesIds = await getLatestNon404RepliesIds(amount);
 
     // Fetch urls
     const fetched = await fetchPagesFromArray(latestRepliesIds.map(v => `https://qbn.com/reply/${v}/`))
@@ -61,8 +72,7 @@ async function updateLatestReplies() {
     // Update on db
     const updatedOnDb = await updateRepliesInDb(processedData)
     console.log(updatedOnDb)
-
-    process.exit(0)
 }
 
-updateLatestReplies()
+
+execute()

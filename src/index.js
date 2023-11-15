@@ -11,7 +11,7 @@ async function scrapeAndProcess() {
   console.log(`lastTopicId ${lastId}`);
 
   const startingTopicNumber =  lastId + 1;
-  const topicAmount = 100; 
+  const topicAmount = 1; 
   // Set the maximum topic number you want to scrape
   const maxTopicNumber = startingTopicNumber + topicAmount - 1; 
 
@@ -22,6 +22,7 @@ async function scrapeAndProcess() {
     // Process the fetched topics
     const processedDataPromises = fetched.map(data => processTopic(data));
     const processedData = await Promise.all(processedDataPromises);
+
 
     // Add topics to database
     const addedToDb = await addTopicsToDb(processedData);

@@ -114,6 +114,7 @@ async function processUpdatedReply(response) {
     }
     return reply
 }
+
 /**
  * Process fetched topic response data
  *
@@ -175,7 +176,7 @@ async function processTopic(response) {
         user: $("#main > ul > li.news > dl > dd.main > div.meta > a").text().trim(),
         title: title,
         date: $("#meta > ul > li:nth-child(1) > span").attr("date"),
-        post: $("#main > ul > li.news > dl > dd.main > div.body").html(),
+        post: $("#main > ul > li.news > dl > dd.main > div.body").html() ?? '',
         status: response.status,
         responseUrl: responseUrl,
         topicType: topicType
@@ -206,8 +207,8 @@ async function processTopic(response) {
     }
 
     return topic
-
 }
+
 
 /**
  * Detects the type of topic page it is

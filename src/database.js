@@ -239,6 +239,31 @@ async function getLatestNon404RepliesIds(numberToRetrieve) {
 }
 
 /**
+ * Retrieves non-404 status replies from the 'replies' table in reverse order, starting from a given ID and moving backwards.
+ *
+ * @param {number} startingId - The ID to start the retrieval from.
+ * @param {number} numberToRetrieve - The number of replies to fetch.
+ * @returns {Promise<Array>} An array containing the IDs of the retrieved replies.
+ */
+async function getRepliesFromIdBackwards(startingId, numberToRetrieve) {
+    try {
+      const connection = await pool.getConnection();
+      const [rows] = await connection.execute(
+        'SELECT id FROM replies WHERE id < ? AND status != 404 ORDER BY id DESC LIMIT ?',
+        [startingId, numberToRetrieve]
+      );
+  
+      connection.release();
+      const ids = rows.map((row) => row.id);
+      return ids;
+    } catch (error) {
+      console.error('Error:', error);
+      return [];
+    }
+  }
+  
+
+/**
  * Recursively checks an object for `undefined` values and returns the name of the first key
  * with an `undefined` value.
  *
