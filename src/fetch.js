@@ -1,5 +1,20 @@
 const axios = require('axios');
 
+async function fetchPage(url) {
+    try {
+        const response = await axios.get(url);
+        return response;
+    } catch (error) {
+        console.error(`Error fetching page ${url}, error: ${error.message}`);
+        const checkError = error;
+        const status = error.response.status
+        if (status === 404 || status == 403) {
+            return error.response;
+        }
+        throw new Error(error);
+    }
+}
+
 /**
  * Fetches pages within a specified range and returns an array of fetched responses.
  * 
@@ -103,7 +118,7 @@ async function fetchPagesFromArray(urls) {
 
     for (const url of urls) {
         try {
-            
+
             const response = await axios.get(url);
 
             // Add the topicData object to the scrapedData array
@@ -115,9 +130,9 @@ async function fetchPagesFromArray(urls) {
             fetchedData.push(error.response);
         }
     }
-    
+
     return fetchedData; // Return the array of scraped data
 }
 
 // Export the fetchTopics function so it can be imported in other files
-module.exports = { fetchPages, autoFetchPagesById, fetchPagesFromArray };
+module.exports = { fetchPage, fetchPages, autoFetchPagesById, fetchPagesFromArray };

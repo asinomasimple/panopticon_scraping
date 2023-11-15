@@ -77,9 +77,9 @@ async function updateRepliesInDb(replies) {
                     if (commonNotes.length === existingNotes.length) {
 
                         await connection.execute('UPDATE replies SET notes = ?, score = ? WHERE id = ?', [JSON.stringify(newNotes), reply.score, reply.id]);
-                   
+
                     } else {
-                        
+
                         // If existing notes have been deleted combine notes before overwriting
                         const combinedNotes = [...existingNotes, ...newNotes.filter((n) => !existingNotes.find((note) => (n.comment === note.comment && n.user === note.user)))];
                         await connection.execute('UPDATE replies SET notes = ?, score = ? WHERE id = ?', [JSON.stringify(combinedNotes), reply.score, reply.id]);
@@ -129,13 +129,19 @@ async function addTopicsToDb(data) {
 
                 // User profile topic
                 if (d.topicType === 'profile') {
-                    console.log(`insert profile ${d.user}`)
+                    console.log(`insert profile '${d.user}' status ${d.profile.status}`)
                     const profile = d.profile;
                     // If profile is deleted only insert rip dates
                     if (profile.rip !== undefined && profile.rip !== "") {
                         const profileInsertSql = 'INSERT INTO profiles (topic_id, rip) VALUES (?, ?)';
                         const profileValues = [d.id, profile.rip];
-                        //await connection.execute(profileInsertSql, profileValues);
+                        await connection.execute(profileInsertSql, profileValues);
+                    }
+                    // Insert 404 and 403 status
+                    else if (profile.status === 404 || profile.status === 403) {
+                        const profileInsertSql = 'INSERT INTO profiles (topic_id, status) VALUES (?, ?)';
+                        const profileValues = [d.id, profile.status];
+                        await connection.execute(profileInsertSql, profileValues);
                     } else {
                         const profileInsertSql = 'INSERT INTO profiles (topic_id, name, location, url, avatar, uncertified, endorsement_status, endorsed_by, bio, rip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
                         const uncertified = d.uncertified == "uncertified" ? 1 : 0;
@@ -144,7 +150,6 @@ async function addTopicsToDb(data) {
                     }
                 }
             }
-
             await connection.commit();
             console.log(`${data.length} topics inserted successfully.`);
             resolve('Data inserted successfully.');
@@ -156,6 +161,50 @@ async function addTopicsToDb(data) {
             connection.close();
         }
     });
+}
+
+/**
+ * Inserts profile into database
+ * 
+ * @param {number} topicId - The topic id in the 'topics' table to link to
+ * @param {object}  profile - The profile data
+ */
+async function addProfilesToDb(data) {
+    const connection = await createDbConnection();
+    try {
+        
+        await connection.beginTransaction();
+        for (const d of data) {
+
+           const {topicId, profile} = d;
+
+            // If profile is deleted only insert rip dates
+            if (profile.rip !== undefined && profile.rip !== "") {
+                const profileInsertSql = 'INSERT INTO profiles (topic_id, rip) VALUES (?, ?)';
+                const profileValues = [topicId, profile.rip];
+                await connection.execute(profileInsertSql, profileValues);
+            }
+            // Insert 404 and 403 status
+            else if (profile.status === 404 || profile.status === 403) {
+                const profileInsertSql = 'INSERT INTO profiles (topic_id, status) VALUES (?, ?)';
+                const profileValues = [topicId, profile.status];
+                await connection.execute(profileInsertSql, profileValues);
+            } else {
+                const profileInsertSql = 'INSERT INTO profiles (topic_id, name, location, url, avatar, uncertified, endorsement_status, endorsed_by, bio, rip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                const uncertified = d.uncertified == "uncertified" ? 1 : 0;
+                const profileValues = [topicId, profile.name, profile.location, profile.url, profile.avatar, profile.uncertified, profile.endorsementStatus, profile.endorsedBy, profile.bio, ''];
+                await connection.execute(profileInsertSql, profileValues);
+            }
+        }
+        await connection.commit();
+        console.log(`${data.length} topics inserted successfully.`);
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error', error);
+    } finally {
+        connection.end();
+    }
+
 }
 
 /**
@@ -247,21 +296,21 @@ async function getLatestNon404RepliesIds(numberToRetrieve) {
  */
 async function getRepliesFromIdBackwards(startingId, numberToRetrieve) {
     try {
-      const connection = await pool.getConnection();
-      const [rows] = await connection.execute(
-        'SELECT id FROM replies WHERE id < ? AND status != 404 ORDER BY id DESC LIMIT ?',
-        [startingId, numberToRetrieve]
-      );
-  
-      connection.release();
-      const ids = rows.map((row) => row.id);
-      return ids;
+        const connection = await pool.getConnection();
+        const [rows] = await connection.execute(
+            'SELECT id FROM replies WHERE id < ? AND status != 404 ORDER BY id DESC LIMIT ?',
+            [startingId, numberToRetrieve]
+        );
+
+        connection.release();
+        const ids = rows.map((row) => row.id);
+        return ids;
     } catch (error) {
-      console.error('Error:', error);
-      return [];
+        console.error('Error:', error);
+        return [];
     }
-  }
-  
+}
+
 
 /**
  * Recursively checks an object for `undefined` values and returns the name of the first key
@@ -300,60 +349,60 @@ function findUndefinedKey(obj, parentKey) {
  */
 async function updateNotesInDb(replyId, newNotes) {
     const connection = await pool.getConnection();
-  
+
     try {
-      // Retrieve existing notes for the reply
-      const [existingNotesRow] = await connection.execute('SELECT * FROM notes WHERE reply_id = ?', [replyId]);
-      const existingNotes = existingNotesRow.map((row) => ({
-        id: row.id,
-        comment: row.comment,
-        user: row.user,
-        position: row.position,
-        status: row.status,
-      }));
-  
-      if (newNotes.length >= existingNotes.length) {
-        const commonNotes = existingNotes.filter((note) => newNotes.find((n) => n.comment === note.comment)); // comment & user
-  
-        if (commonNotes.length === existingNotes.length) {
-          // If all old notes are included in the new notes, update with the new notes
-          for (const note of newNotes) {
-            await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
-              [note.comment, note.user, note.position, note.status, note.id]);
-          }
+        // Retrieve existing notes for the reply
+        const [existingNotesRow] = await connection.execute('SELECT * FROM notes WHERE reply_id = ?', [replyId]);
+        const existingNotes = existingNotesRow.map((row) => ({
+            id: row.id,
+            comment: row.comment,
+            user: row.user,
+            position: row.position,
+            status: row.status,
+        }));
+
+        if (newNotes.length >= existingNotes.length) {
+            const commonNotes = existingNotes.filter((note) => newNotes.find((n) => n.comment === note.comment)); // comment & user
+
+            if (commonNotes.length === existingNotes.length) {
+                // If all old notes are included in the new notes, update with the new notes
+                for (const note of newNotes) {
+                    await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
+                        [note.comment, note.user, note.position, note.status, note.id]);
+                }
+            } else {
+                // Combine old and new notes, keeping unique new notes
+                const combinedNotes = [
+                    ...existingNotes,
+                    ...newNotes.filter((n) => !existingNotes.find((note) => note.comment === n.comment)),
+                ];
+
+                // Update the notes in the database with the combined list
+                for (const note of combinedNotes) {
+                    await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
+                        [note.comment, note.user, note.position, note.status, note.id]);
+                }
+            }
         } else {
-          // Combine old and new notes, keeping unique new notes
-          const combinedNotes = [
-            ...existingNotes,
-            ...newNotes.filter((n) => !existingNotes.find((note) => note.comment === n.comment)),
-          ];
-  
-          // Update the notes in the database with the combined list
-          for (const note of combinedNotes) {
-            await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
-              [note.comment, note.user, note.position, note.status, note.id]);
-          }
+            // If the new notes are fewer, combine both and update
+            const combinedNotes = [
+                ...existingNotes,
+                ...newNotes.filter((n) => !existingNotes.find((note) => note.comment === n.comment)),
+            ];
+
+            // Update the notes in the database with the combined list
+            for (const note of combinedNotes) {
+                await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
+                    [note.comment, note.user, note.position, note.status, note.id]);
+            }
         }
-      } else {
-        // If the new notes are fewer, combine both and update
-        const combinedNotes = [
-          ...existingNotes,
-          ...newNotes.filter((n) => !existingNotes.find((note) => note.comment === n.comment)),
-        ];
-  
-        // Update the notes in the database with the combined list
-        for (const note of combinedNotes) {
-          await connection.execute('UPDATE notes SET comment = ?, user = ?, position = ?, status = ? WHERE id = ?',
-            [note.comment, note.user, note.position, note.status, note.id]);
-        }
-      }
-  
-      connection.release();
-      console.log('Notes updated successfully!');
+
+        connection.release();
+        console.log('Notes updated successfully!');
     } catch (error) {
-      connection.release();
-      console.error('Error updating notes:', error);
+        connection.release();
+        console.error('Error updating notes:', error);
     }
-  }
-  
-module.exports = { getLastTopicId, getLastReplyId, addTopicsToDb, addRepliesToDb, updateRepliesInDb, getLatestNon404RepliesIds };
+}
+
+module.exports = { getLastTopicId, getLastReplyId, addTopicsToDb, addRepliesToDb, updateRepliesInDb, getLatestNon404RepliesIds, addProfilesToDb };

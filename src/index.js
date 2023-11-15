@@ -31,6 +31,8 @@ async function scrapeAndProcess() {
     // Handle any errors that may occur the scraping
     console.error('An error occurred:', error);
   }
+  
+  return
 
   if((startingTopicNumber+topicAmount) < 774846){
     console.log("continue scraping")

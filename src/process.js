@@ -1,6 +1,5 @@
 const cheerio = require('cheerio');
-const axios = require('axios');
-
+const { fetchPage } = require('./fetch');
 
 // Topic types
 const TYPE_THREAD = "thread";
@@ -192,23 +191,14 @@ async function processTopic(response) {
     // If it's a profile
     if (topicType == TYPE_PROFILE) {
         // Use the url from the href for usernames with special characters
-        const constUserUrl = $("a.user").attr('href'); // <a href="/username/" class="user ">username</a>
-        const profileUrl = `https://qbn.com${constUserUrl}`;
-
-        try {
-            const response = await axios.get(profileUrl);
-            topic['profile'] = processProfile(response.data)
-        } catch (error) {
-            // Handle errors or continue scraping
-            console.error(`Error processing profile id: ${topic.id}, url: ${profileUrl}, error: ${error.message}`);
-            throw Error(error);
-        }
+        const userUrl = $("a.user").attr('href'); // <a href="/username/" class="user ">username</a>
+        const profileUrl = `https://qbn.com${userUrl}`;
+        topic['profile'] = await scrapeProfile(profileUrl);
 
     }
 
     return topic
 }
-
 
 /**
  * Detects the type of topic page it is
@@ -232,13 +222,34 @@ function getTopicType(ntUrl, urlHasTitle, titleFromHtml) {
 }
 
 /**
+ * Handles fetching a processing a profile url
+ * 
+ * @param {string} url - The url to fetch and process
+ * @returns A profile data object
+ */
+async function scrapeProfile(url) {
+    const response = await fetchPage(url);
+    const data = processProfile(response);
+    return data;
+}
+
+/**
  * Process scraped data using Cheerio.
  * 
- * @param {string} data - The html data to load to cheerio
+ * @param {object} response - The axios get response object https://axios-http.com/docs/res_schema
  * @returns A data object
  */
-function processProfile(data) {
-    const $ = cheerio.load(data)
+function processProfile(response) {
+    // Return only status if status is 404
+    const responseStatus = response.status;
+    console.log(`responseStatus ${responseStatus}`)
+    if (responseStatus === 404 || responseStatus === 403) {
+        return { status: responseStatus }
+    }
+
+
+
+    const $ = cheerio.load(response.data)
     // Check if user is deleted
     const rip = $("#main > p:nth-child(2)").text()
     if (rip != "") {
@@ -332,4 +343,4 @@ function getTitleFromUrl(url) {
 }
 
 
-module.exports = { processTopic, processReply, processUpdatedReply };
+module.exports = { processTopic, processReply, processUpdatedReply, scrapeProfile };
