@@ -11,7 +11,7 @@ async function scrapeAndProcess() {
   console.log(`lastTopicId ${lastId}`);
 
   const startingTopicNumber =  lastId + 1;
-  const topicAmount = 1; 
+  const topicAmount = 50; 
   // Set the maximum topic number you want to scrape
   const maxTopicNumber = startingTopicNumber + topicAmount - 1; 
 
@@ -31,8 +31,7 @@ async function scrapeAndProcess() {
     // Handle any errors that may occur the scraping
     console.error('An error occurred:', error);
   }
-  
-  return
+
 
   if((startingTopicNumber+topicAmount) < 774846){
     console.log("continue scraping")

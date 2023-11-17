@@ -1,16 +1,27 @@
 const axios = require('axios');
 
+/**
+ * Fetches pages within a specified range and returns an array of fetched responses.
+ * @param {string} url - The url to fetch
+ * @returns {object} The fetched response
+ */
 async function fetchPage(url) {
     try {
+
         const response = await axios.get(url);
         return response;
+
     } catch (error) {
+
         console.error(`Error fetching page ${url}, error: ${error.message}`);
-        const checkError = error;
+
+        // Return 404 errors, we also want to store deleted pages
+        // 403 erros for profile pages like '/services/'
         const status = error.response.status
         if (status === 404 || status == 403) {
             return error.response;
         }
+
         throw new Error(error);
     }
 }
@@ -59,6 +70,7 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
     let consecutive404Count = 0;
     let totalRequests = 0;
 
+    // Fetch pages 404 responses included if under maxConsecutive404
     while (totalRequests < maxTotalRequests && consecutive404Count < maxConsecutive404) {
         const url = `${baseUrl}${idToStart}/`;
 
@@ -69,22 +81,26 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
             if (response.status === 200) {
                 resultArray.push(response);
                 consecutive404Count = 0; // Reset consecutive 404 count
+
             } else if (response.status === 404) {
                 // Normally 404 pages shouldn't get a response but an error
                 resultArray.push(response); // Add a marker for deleted page
                 consecutive404Count++;
+
             } else {
                 // Handle other HTTP status codes if needed
                 console.log(`Unexpected status code: ${response.status}`);
             }
 
             idToStart++;
+
         } catch (error) {
             // Handle the error and include the error response in the resultArray
             if (error.response && error.response.status === 404) {
                 resultArray.push(error.response); // Add a marker for deleted page
                 consecutive404Count++;
                 idToStart++;
+
             } else {
                 console.error('Error:', error);
                 throw new Error(error)
@@ -93,17 +109,21 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
         }
     }
 
-    // Remove consecutive 404 markers from the end
+    // Clean array by removing consecutive 404 markers from the end
     for (let i = resultArray.length - 1; i >= 0; i--) {
-        // Stop removing 404 markers at the first valid response
+
+        // Stop removing 404 markers at the first non 404 response
         if (resultArray[i] !== null && (resultArray[i].status !== 404)) {
             break;
         }
+
         // Remove 404 markers from the bottom
         if (resultArray[i] === null || (resultArray[i].status === 404)) {
             resultArray.pop();
         }
+
     }
+
     return resultArray;
 }
 
@@ -118,7 +138,6 @@ async function fetchPagesFromArray(urls) {
 
     for (const url of urls) {
         try {
-
             const response = await axios.get(url);
 
             // Add the topicData object to the scrapedData array

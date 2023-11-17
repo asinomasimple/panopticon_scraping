@@ -1,13 +1,13 @@
-const { getLastReplyId, addRepliesToDb, getLatestNon404RepliesIds, updateRepliesInDb } = require('./database');
+const { getLastReplyId, addRepliesToDb, addNotesToDb, getLatestNon404RepliesIds, updateRepliesInDb, closePool } = require('./db_replies');
 const { autoFetchPagesById, fetchPagesFromArray } = require('./fetch');
-const { processReply, processUpdatedReply } = require('./process');
+const { processReply, processUpdatedReply } = require('./process_replies');
 
 /**
  * Updates exisiting replies and then scrapes new ones
  */
 async function execute() {
-   await updateLatestReplies(50)
-   await scrapeNewReplies(50, 5)
+    // await updateLatestReplies(50)
+    await scrapeNewReplies(2, 2)
     process.exit(0)
 }
 /**
@@ -22,6 +22,7 @@ async function execute() {
  */
 async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
     console.log(`Scraping new replies...`)
+
     // Get the last reply id in database
     const lastId = await getLastReplyId();
     console.log(`Last reply id in database ${lastId}`);
@@ -32,22 +33,36 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
         const fetched = await autoFetchPagesById('https:qbn.com/reply/', startId, maxTotalRequests, maxConsecutive404)
 
         // Process the fetched pages
-        const processedDataPromises = fetched.map(data => processReply(data));
-        const processedData = await Promise.all(processedDataPromises);
+        const dataPromises = fetched.map(data => processReply(data));
+        const data = await Promise.all(dataPromises);
 
         // Return if there are no entries to add to database 
-        if (processedData.length < 1) {
+        if (data.length < 1) {
             console.log("No new entries to add");
             return;
         }
 
         // Add replies to database
-        const addedToDb = await addRepliesToDb(processedData);
+        const addedToDb = await addRepliesToDb(data);
         console.log(`${addedToDb}`)
+
+        // Extract notes from data
+        const notes = data.filter(d => d.notes != null)
+            .map(d => d.notes)
+            .flat();
+
+        // Add notes to database 
+        if (notes.length >= 1) {
+           await addNotesToDb(notes)
+        }
 
     } catch (error) {
         // Handle any errors that may occur the scraping
         console.error('An error occurred when scraping new replies:', error);
+        throw error;
+
+    } finally {
+        closePool()
     }
 }
 

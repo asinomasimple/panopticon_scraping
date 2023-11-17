@@ -2,16 +2,58 @@ const { database } = require('../config/config');
 const mysql = require('mysql2/promise');
 
 // Create a pool
-const POOL = mysql.createPool(database);
+// https://www.npmjs.com/package/mysql2#using-connection-pools
+const POOL = mysql.createPool({ connectionLimit: 10, ...database });
+
 
 /**
- * Creates the database connection
+ * Adds data objects to 'replies' table in database
+ * 
+ * @param {array} data Data objects with the records to insert in the db
+ * @returns {Promise} A Promise that resolves when the insertion is complete or rejects on error.
  */
-async function createDbConnection() {
-    const connection = await mysql.createConnection(database);
-    return connection;
-}
 
+/**
+ * Adds data objects to 'replies' table in database
+ * 
+ * @param {array} replies Data objects with the records to insert in the db
+ * @returns {string} A message with the number of inserted replies.
+ */
+async function addRepliesToDb(replies) {
+    const connection = await POOL.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        for (const reply of replies) {
+            // Destructure item
+            const { id, status, date, user, topicId, topicTitle, post, notes, score, replyNumber } = reply;
+
+            if (replies.status == 404) {
+                await connection.execute(
+                    'INSERT INTO replies (id, status) VALUES (?, ?)',
+                    [id, status]
+                );
+
+            } else {
+                await connection.execute(
+                    'INSERT INTO replies (id, status, created, user, topic_id, topic_title, post, notes, score, reply_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [id, status, date, user, topicId, topicTitle, post, notes, score, replyNumber]
+                );
+            }
+        }
+
+        await connection.commit()
+        return `${replies.length} replies inserted successfully.`;
+
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+
+    } finally {
+        connection.release();
+    }
+}
 
 /**
  * Updates the 'replies' table in the database based on the provided data.
@@ -21,8 +63,10 @@ async function createDbConnection() {
  */
 async function updateRepliesInDb(replies) {
     const connection = await POOL.getConnection();
+
     try {
         for (const reply of replies) {
+
             if (reply.status === 400) {
 
                 await connection.execute('UPDATE replies SET status = ? WHERE id = ?', [reply.status, reply.id]);
@@ -56,148 +100,13 @@ async function updateRepliesInDb(replies) {
             }
         }
 
-        connection.release();
+        await connection.commit();
         return `${replies.length} replies updated successfully!`;
     } catch (error) {
-        connection.release();
-        console.error('Error updating replies:', error);
+        connection.rollback();
         return error;
-    }
-}
-
-/**
- * Adds data objects to 'topics' table in database
- * 
- * @param {array} data Data objects with the records to insert in the db
- * @returns {Promise} A Promise that resolves when the insertion is complete or rejects on error.
- */
-async function addTopicsToDb(data) {
-    return new Promise(async (resolve, reject) => {
-        const connection = await POOL.getConnection()
-
-        try {
-            await connection.beginTransaction();
-
-            for (const d of data) {
-
-                // Base topic, if no extra table needed it's a "thread"
-                const topicsInsertSql = 'INSERT INTO topics (id, status, title, date, post, user, topic_type) VALUES (?, ?, ?, ?, ?, ?, ?)';
-                const topicsValues = [d.id, d.status, d.title, d.date, d.post, d.user, d.topicType];
-                await connection.execute(topicsInsertSql, topicsValues);
-
-                // NT type topic
-                if (d.topicType === 'nt') {
-                    const ntInsertSql = 'INSERT INTO nt (topic_id, url, thumbnail) VALUES (?, ?, ?)';
-                    const ntValues = [d.id, d.ntUrl, d.ntThumbnail];
-                    await connection.execute(ntInsertSql, ntValues);
-                }
-
-                // User profile topic
-                if (d.topicType === 'profile') {
-                    console.log(`insert profile '${d.user}' status ${d.profile.status}`)
-                    const profile = d.profile;
-                    // If profile is deleted only insert rip dates
-                    if (profile.rip !== undefined && profile.rip !== "") {
-                        const profileInsertSql = 'INSERT INTO profiles (topic_id, rip) VALUES (?, ?)';
-                        const profileValues = [d.id, profile.rip];
-                        await connection.execute(profileInsertSql, profileValues);
-                    }
-                    // Insert 404 and 403 status
-                    else if (profile.status === 404 || profile.status === 403) {
-                        const profileInsertSql = 'INSERT INTO profiles (topic_id, status) VALUES (?, ?)';
-                        const profileValues = [d.id, profile.status];
-                        await connection.execute(profileInsertSql, profileValues);
-                    } else {
-                        const profileInsertSql = 'INSERT INTO profiles (topic_id, name, location, url, avatar, uncertified, endorsement_status, endorsed_by, bio, rip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-                        const uncertified = d.uncertified == "uncertified" ? 1 : 0;
-                        const profileValues = [d.id, profile.name, profile.location, profile.url, profile.avatar, profile.uncertified, profile.endorsementStatus, profile.endorsedBy, profile.bio, ''];
-                        await connection.execute(profileInsertSql, profileValues);
-                    }
-                }
-            }
-            await connection.commit();
-            console.log(`${data.length} topics inserted successfully.`);
-            resolve('Data inserted successfully.');
-        } catch (error) {
-            await connection.rollback();
-            console.error('Error', error);
-            reject(error);
-        } finally {
-            connection.close();
-        }
-    });
-}
-
-/**
- * Inserts profile into database
- * 
- * @param {number} topicId - The topic id in the 'topics' table to link to
- * @param {object}  profile - The profile data
- */
-async function addProfilesToDb(data) {
-    const connection = await POOL.getConnection()
-    
-    try {
-
-        await connection.beginTransaction();
-        for (const d of data) {
-
-            const { topicId, profile } = d;
-
-            // If profile is deleted only insert rip dates
-            if (profile.rip !== undefined && profile.rip !== "") {
-                const profileInsertSql = 'INSERT INTO profiles (topic_id, rip) VALUES (?, ?)';
-                const profileValues = [topicId, profile.rip];
-                await connection.execute(profileInsertSql, profileValues);
-            }
-            // Insert 404 and 403 status
-            else if (profile.status === 404 || profile.status === 403) {
-                const profileInsertSql = 'INSERT INTO profiles (topic_id, status) VALUES (?, ?)';
-                const profileValues = [topicId, profile.status];
-                await connection.execute(profileInsertSql, profileValues);
-            } else {
-                const profileInsertSql = 'INSERT INTO profiles (topic_id, name, location, url, avatar, uncertified, endorsement_status, endorsed_by, bio, rip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-                const uncertified = d.uncertified == "uncertified" ? 1 : 0;
-                const profileValues = [topicId, profile.name, profile.location, profile.url, profile.avatar, profile.uncertified, profile.endorsementStatus, profile.endorsedBy, profile.bio, ''];
-                await connection.execute(profileInsertSql, profileValues);
-            }
-        }
-        await connection.commit();
-        console.log(`${data.length} topics inserted successfully.`);
-    } catch (error) {
-        await connection.rollback();
-        console.error('Error', error);
     } finally {
-        connection.end();
-    }
-
-}
-
-/**
- * Checks 'topics' database table for last id
- * @returns {number}    The last topic id number
- */
-async function getLastTopicId() {
-    const connection = await createDbConnection();
-
-    try {
-        // Query to retrieve the maximum ID from the 'topics' table
-        const query = 'SELECT MAX(id) AS lastId FROM topics';
-        const [rows] = await connection.execute(query);
-
-        if (rows.length > 0) {
-            const lastId = rows[0].lastId;
-            return lastId;
-
-        } else {
-            console.log('No data in the topics table.');
-            return null;
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        throw new Error(error);
-    } finally {
-        connection.close();
+        connection.release();
     }
 }
 
@@ -205,7 +114,7 @@ async function getLastTopicId() {
  * Checks 'replies' database table for last id
  */
 async function getLastReplyId() {
-    const connection = await createDbConnection();
+    const connection = await POOL.getConnection();
 
     try {
         // Query to retrieve the maximum ID from the 'replies' table
@@ -221,10 +130,10 @@ async function getLastReplyId() {
             return null;
         }
     } catch (error) {
-        console.error('Error:', error);
-        throw new Error(error);
+        connection.rollback();
+        return error;
     } finally {
-        connection.close();
+        connection.release();
     }
 }
 
@@ -235,21 +144,23 @@ async function getLastReplyId() {
  * @returns {Promise<Array<number>>} - A promise that resolves with an array of non-404 reply IDs.
  */
 async function getLatestNon404RepliesIds(numberToRetrieve) {
-    try {
-        const connection = await POOL.getConnection();
+    const connection = await POOL.getConnection();
 
+    try {
         const [rows] = await connection.execute(
             'SELECT id FROM replies WHERE status != 404 ORDER BY id DESC LIMIT ?',
             [numberToRetrieve]
         );
 
-        connection.release();
         const ids = rows.map(row => row.id);
         return ids;
 
     } catch (error) {
-        console.error('Error:', error);
-        return [];
+        connection.rollback();
+        return error;
+
+    } finally {
+        connection.release();
     }
 }
 
@@ -261,47 +172,24 @@ async function getLatestNon404RepliesIds(numberToRetrieve) {
  * @returns {Promise<Array>} An array containing the IDs of the retrieved replies.
  */
 async function getRepliesFromIdBackwards(startingId, numberToRetrieve) {
+    const connection = await POOL.getConnection();
+
     try {
-        const connection = await POOL.getConnection();
         const [rows] = await connection.execute(
             'SELECT id FROM replies WHERE id < ? AND status != 404 ORDER BY id DESC LIMIT ?',
             [startingId, numberToRetrieve]
         );
 
-        connection.release();
         const ids = rows.map((row) => row.id);
         return ids;
+
     } catch (error) {
-        console.error('Error:', error);
-        return [];
+        connection.rollback();
+        return error;
+
+    } finally {
+        connection.release();
     }
-}
-
-
-/**
- * Recursively checks an object for `undefined` values and returns the name of the first key
- * with an `undefined` value.
- *
- * @param {object} obj - The object to check.
- * @param {string} [parentKey] - Internal use for recursion; you don't need to provide this.
- * @returns {string|null} - The name of the first key with an `undefined` value, or `null` if none found.
- */
-function findUndefinedKey(obj, parentKey) {
-    for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            const value = obj[key];
-
-            if (value === undefined) {
-                return parentKey ? `${parentKey}.${key}` : key;
-            } else if (typeof value === 'object' && !Array.isArray(value)) {
-                const nestedKey = findUndefinedKey(value, parentKey ? `${parentKey}.${key}` : key);
-                if (nestedKey !== null) {
-                    return nestedKey;
-                }
-            }
-        }
-    }
-    return null;
 }
 
 
@@ -363,11 +251,14 @@ async function updateNotesInDb(replyId, newNotes) {
             }
         }
 
-        connection.release();
         console.log('Notes updated successfully!');
+
     } catch (error) {
+        connection.rollback();
+        return error;
+
+    } finally {
         connection.release();
-        console.error('Error updating notes:', error);
     }
 }
 
@@ -378,21 +269,22 @@ async function updateNotesInDb(replyId, newNotes) {
  * @param {Array} notes - An array of note objects.
  * @returns {Promise} A promise that resolves when all notes are inserted and the connection is closed.
  */
-async function insertNotes(notes) {
+async function addNotesToDb(notes) {
     const connection = await POOL.getConnection();
+
     try {
         // Using a transaction for atomicity
         await connection.beginTransaction();
 
         // Iterate through each note and insert into the 'notes' table
         const insertPromises = notes.map(async (note) => {
-            const { user, comment, reply_id, position } = note;
+            const { user, comment, replyId, position } = note;
 
             // SQL query to insert a note
             const query = 'INSERT INTO notes (user, comment, reply_id, position) VALUES (?, ?, ?, ?)';
 
             // Execute the query
-            await connection.execute(query, [user, comment, reply_id, position]);
+            await connection.execute(query, [user, comment, replyId, position]);
         });
 
         // Wait for all insert operations to complete
@@ -401,7 +293,7 @@ async function insertNotes(notes) {
         // Commit the transaction
         await connection.commit();
 
-        console.log('Notes inserted successfully!');
+        console.log(`${notes.length} notes inserted successfully.`);
     } catch (error) {
         // Rollback the transaction if an error occurs
         await connection.rollback();
@@ -420,6 +312,7 @@ async function insertNotes(notes) {
  */
 async function getLastReplyIdFromNotes() {
     const connection = await POOL.getConnection();
+
     try {
         // SQL query to get the highest reply_id
         const query = 'SELECT MAX(reply_id) AS highestReplyId FROM notes';
@@ -439,14 +332,18 @@ async function getLastReplyIdFromNotes() {
     }
 }
 
+/**
+ * Does what it says it does
+ */
+function closePool() {
+    POOL.end()
+}
 module.exports = {
-    getLastTopicId,
     getLastReplyId,
-    addTopicsToDb,
     addRepliesToDb,
     updateRepliesInDb,
     getLatestNon404RepliesIds,
-    addProfilesToDb,
-    insertNotes,
-    getLastReplyIdFromNotes
+    addNotesToDb,
+    getLastReplyIdFromNotes,
+    closePool
 };
