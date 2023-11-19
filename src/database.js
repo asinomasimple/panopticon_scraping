@@ -441,12 +441,6 @@ async function getLastReplyIdFromNotes() {
 
 module.exports = {
     getLastTopicId,
-    getLastReplyId,
     addTopicsToDb,
-    addRepliesToDb,
-    updateRepliesInDb,
-    getLatestNon404RepliesIds,
     addProfilesToDb,
-    insertNotes,
-    getLastReplyIdFromNotes
 };

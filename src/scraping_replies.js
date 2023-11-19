@@ -1,14 +1,13 @@
-const { getLastReplyId, addRepliesToDb, addNotesToDb, getLatestNon404RepliesIds, updateRepliesInDb, closePool } = require('./db_replies');
+const { getLastReplyId, addRepliesToDb, addNotesToDb, getLatestNon404RepliesIds, updateRepliesInDb, updateNotesInDb, closePool } = require('./db_replies');
 const { autoFetchPagesById, fetchPagesFromArray } = require('./fetch');
-const { processReply, processUpdatedReply } = require('./process_replies');
+const { processReply } = require('./process_replies');
 
 /**
  * Updates exisiting replies and then scrapes new ones
  */
 async function execute() {
-    // await updateLatestReplies(50)
-    await scrapeNewReplies(2, 2)
-    process.exit(0)
+    await updateLatestReplies(50)
+    // await scrapeNewReplies(20, 2)
 }
 /**
  * Scrapes new replies from website
@@ -25,7 +24,7 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
 
     // Get the last reply id in database
     const lastId = await getLastReplyId();
-    console.log(`Last reply id in database ${lastId}`);
+    console.log(`Last reply id in database ${lastId}.`);
 
     try {
         // Fetch the replies from the website
@@ -44,7 +43,6 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
 
         // Add replies to database
         const addedToDb = await addRepliesToDb(data);
-        console.log(`${addedToDb}`)
 
         // Extract notes from data
         const notes = data.filter(d => d.notes != null)
@@ -53,7 +51,7 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
 
         // Add notes to database 
         if (notes.length >= 1) {
-           await addNotesToDb(notes)
+            await addNotesToDb(notes)
         }
 
     } catch (error) {
@@ -73,21 +71,38 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
  */
 async function updateLatestReplies(amount) {
     console.log(`updating latest ${amount} replies...`)
-    // Get the latest non-404 replies
-    const latestRepliesIds = await getLatestNon404RepliesIds(amount);
+    try {
+        // Get the latest non-404 replies
+        const latestRepliesIds = await getLatestNon404RepliesIds(amount);
 
-    // Fetch urls
-    const fetched = await fetchPagesFromArray(latestRepliesIds.map(v => `https://qbn.com/reply/${v}/`))
+        // Fetch urls
+        const fetched = await fetchPagesFromArray(latestRepliesIds.map(v => `https://qbn.com/reply/${v}/`));
+        console.log("fetched replies")
 
-    // Process fetched pages
-    const processedDataPromises = fetched.map(data => processUpdatedReply(data));
-    const processedData = await Promise.all(processedDataPromises);
-    //  console.log(JSON.stringify(processedData, null, 2))
+        // Process fetched pages
+        const dataPromises = fetched.map(d => processReply(d));
+        const data = await Promise.all(dataPromises);
+        console.log("processed replies")
 
-    // Update on db
-    const updatedOnDb = await updateRepliesInDb(processedData)
-    console.log(updatedOnDb)
+        // Extract notes from data
+        const notes = data.filter(d => d.notes != null)
+            .map(d => d.notes);
+
+        // Update replies in db (status & score)
+        const updatedOnDb = await updateRepliesInDb(data);
+
+        // Update notes in db
+        if (notes.length > 0) {
+            const notesPromises = notes.map(d => updateNotesInDb(d));
+            const updatedNotes = await Promise.all(notesPromises);
+        }
+        console.info(`... done updating replies.`)
+
+    } catch (error) {
+        throw error;
+
+    } finally {
+        closePool();
+    }
 }
-
-
 execute()

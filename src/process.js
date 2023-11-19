@@ -151,10 +151,21 @@ async function processTopic(response) {
     const ntUrl = $("#main > div.url > a").attr("href");
 
     // Check the topic type
-    const topicType = getTopicType(ntUrl, urlHasTitle, h1);
+    let topicType = getTopicType(ntUrl, urlHasTitle, h1);
+    
+    // Check if there is an <li> with class "news"
+    // Empty topics : https://qbn.com/topics/549241/, https://qbn.com/topics/482702/
+    const liNews = $('li.news');
+    if(liNews == 0){
+        // Asign it NT type 
+        topicType = TYPE_NT;
+    }
 
-    // Get the name of the user that posted the thread or whose profile it is
+    // Get values
+    const id = $("#main > h1 > a").attr("href").split("/")[2];
     const user = $("#main > ul > li.news > dl > dd.main > div.meta > a").text().trim();
+    const date = $("#meta > ul > li:nth-child(1) > span").attr("date");
+    const post = $("#main > ul > li.news > dl > dd.main > div.body").html() ?? '';
 
     let title;
     if (topicType == TYPE_PROFILE) {
@@ -171,19 +182,21 @@ async function processTopic(response) {
 
     // Create base (thread) topic object with the data
     const topic = {
-        id: $("#main > h1 > a").attr("href").split("/")[2],
-        user: $("#main > ul > li.news > dl > dd.main > div.meta > a").text().trim(),
+        id: id,
+        user: user,
         title: title,
-        date: $("#meta > ul > li:nth-child(1) > span").attr("date"),
-        post: $("#main > ul > li.news > dl > dd.main > div.body").html() ?? '',
+        date: date,
+        post: post,
         status: response.status,
         responseUrl: responseUrl,
         topicType: topicType
     }
 
+
+
     // If it's a NT post 
     if (topicType == TYPE_NT) {
-        topic["ntUrl"] = $("#main > div.url > a").attr("href");
+        topic["ntUrl"] = $("#main > div.url > a").attr("href") ?? '';
         const topicThumbnail = $("#main > a").attr("data-url");
         topic["ntThumbnail"] = topicThumbnail ? "https://qbn.com/" + $("#main > a").attr("data-url") : "";
     }
@@ -192,6 +205,7 @@ async function processTopic(response) {
     if (topicType == TYPE_PROFILE) {
         // Use the url from the href for usernames with special characters
         const userUrl = $("a.user").attr('href'); // <a href="/username/" class="user ">username</a>
+        // If there no userUrl it's not really a profile, it's probably an empty topic like
         const profileUrl = `https://qbn.com${userUrl}`;
         topic['profile'] = await scrapeProfile(profileUrl);
 
@@ -242,12 +256,9 @@ async function scrapeProfile(url) {
 function processProfile(response) {
     // Return only status if status is 404
     const responseStatus = response.status;
-    console.log(`responseStatus ${responseStatus}`)
     if (responseStatus === 404 || responseStatus === 403) {
         return { status: responseStatus }
     }
-
-
 
     const $ = cheerio.load(response.data)
     // Check if user is deleted

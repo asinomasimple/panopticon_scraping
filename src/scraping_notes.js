@@ -1,6 +1,6 @@
 const { fetchPagesFromArray } = require("./fetch");
-const { processReply } = require("./process");
-const {getLastReplyIdFromNotes, insertNotes} = require("./database");
+const { processReply } = require("./process_replies");
+const {getLastReplyIdFromNotes, insertNotes, updateNotesInDb} = require("./db_replies");
 
 /**
  * Checks the 'notes' table, retrieve last reply_id and scrapes new replies 
@@ -8,6 +8,8 @@ const {getLastReplyIdFromNotes, insertNotes} = require("./database");
  */
 async function scrapeNotes(replyId) {
     console.log("scraping notes....")
+
+    /*
     // Get the last reply id
     if(replyId === undefined){
         replyId = await getLastReplyIdFromNotes()+1;
@@ -18,10 +20,10 @@ async function scrapeNotes(replyId) {
 
     if(replyId+amount > 4106617){
         throw Error("You've gone too far")
-    }
+    }*/
 
     // Build url
-    const urls = Array.from({ length: amount }, (_, i) => `https://qbn.com/reply/${replyId + i}/`);
+    const urls = [4106712, 4106700, 4106701].map(v => `https://qbn.com/reply/${v}/`)
 
     // Fetch pages
     const fetched = await fetchPagesFromArray(urls)
@@ -32,16 +34,16 @@ async function scrapeNotes(replyId) {
     const data = await Promise.all(dataPromises);
     console.log("data processed")
 
-    // Filter the replies with notes
-    const repliesWithNotes = data.filter(d => d.notes.length > 0)
-    // Add reply id and position to each note
-    const notes = repliesWithNotes.map(d => d.notes.map((n,i) => ({ ...n, reply_id: d.id , position:i}) )).flat()
+    // Extract notes from data
+    const notes = data.filter(d => d.notes != null)
+        .map(d => d.notes);
     
-    await insertNotes(notes)
-
-    console.log("Start again....")
-    scrapeNotes(replyId+amount)
-
+    // Update notes in db
+    if (notes.length > 0) {
+        const notesPromises = notes.map(d => updateNotesInDb(d));
+        const updatedNotes = await Promise.all(notesPromises);
+    }
+    console.log("done scraping notes")
 }
 
 scrapeNotes()

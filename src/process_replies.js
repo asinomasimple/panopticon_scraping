@@ -26,10 +26,10 @@ async function processReply(response) {
     }
 
     // Use cheerio to extract data
-    const $ = cheerio.load(response.data)
-    const id = $("#main > ul.thread.replies > li > dl > dd.main > div.meta > div.flagger").attr("data-id")
-    const replyNumberString = $("#main > h2:nth-child(2) > a").text()
-    const replyNumber = replyNumberString.slice(replyNumberString.indexOf("#") + 1)
+    const $ = cheerio.load(response.data);
+    const id = + $("#main > ul.thread.replies > li > dl > dd.main > div.meta > div.flagger").attr("data-id");
+    const replyNumberString = $("#main > h2:nth-child(2) > a").text();
+    const replyNumber = replyNumberString.slice(replyNumberString.indexOf("#") + 1);
     const user = $("#main > ul.thread.replies > li > dl > dd.main > div.meta > a.user").text().trim();
     const created = new Date($("#main > ul.thread.replies > li > dl > dd.main > div.meta > a.created").attr("date"));
     const topicTitle = $("h1").text();
@@ -37,7 +37,7 @@ async function processReply(response) {
     const score = + $("#main > ul.thread.replies > li > dl > dt > span").text();
 
     // Check error for topicId
-    let topicId
+    let topicId;
     try {
         topicId = + $("#main > h1 > a").attr("href").split("/")[2]
     } catch (error) {
@@ -61,8 +61,8 @@ async function processReply(response) {
         score: score,
         status: response.status
     }
-    console.log(reply)
-    return reply
+
+    return reply;
 }
 
 
@@ -106,48 +106,5 @@ function extractNotes($, replyId) {
     }
 }
 
-/**
- * Process fetched reply response data
- * Reply is already in database, we only need to retrieve certain values
- *
- * @param {object} response - The axios get response object https://axios-http.com/docs/res_schema
- * @returns A data object
- */
-async function processUpdatedReply(response) {
-    // Retrieve response url
-    const responseUrl = response.request.res.responseUrl; // https://axios-http.com/docs/res_schema
 
-    // Deal with deleted topics
-    if (response.status === 404) {
-        const parts = responseUrl.split("/");
-        return {
-            id: parts[parts.length - 2],
-            status: response.status
-        }
-    }
-
-    const $ = cheerio.load(response.data)
-    const id = $("#main > ul.thread.replies > li > dl > dd.main > div.meta > div.flagger").attr("data-id")
-
-    // Go through notes
-    const notesHTML = $("#main > ul.thread.replies > li > dl > dd.notes > div > ul > li")
-    const notes = []
-    if (notesHTML != "") {
-        notesHTML.each(function () {
-            const username = $(this).find(".user").text()
-            const comment = $(this).find("span").text()
-            notes.push({ comment: comment, user: username })
-        })
-    }
-
-    // Build reply object with only updatable values
-    const reply = {
-        id: id,
-        notes: notes,
-        score: + $("#main > ul.thread.replies > li > dl > dt > span").text(),
-        status: response.status
-    }
-    return reply
-}
-
-module.exports = { processReply, processUpdatedReply };
+module.exports = { processReply};
