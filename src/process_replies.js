@@ -81,6 +81,7 @@ function extractNotes($, replyId) {
      * @property {string} user - The username associated with the note.
      * @property {number} replyId - The ID of the reply to which the note belongs.
      * @property {number} position - The position of the note starting from 0.
+     * @property {string} htmlComment - The html content of the comment.
      */
 
     // Go through notes
@@ -90,13 +91,13 @@ function extractNotes($, replyId) {
         const notes = [];
 
         notesHTML.each((i, e) => {
-            const user = $(e).find(".user").text()
-            const comment = $(e).find("span").text()
-
+            const user = $(e).find(".user").text();
+            const comment = $(e).find("span").text();
+            const htmlComment = $(e).find("span").html();
             /**
             * @type {Note}
             */
-            const note = { comment, user: user, replyId, position: i };
+            const note = { comment, user, replyId, position: i , htmlComment};
             notes.push(note);
         })
         return notes;

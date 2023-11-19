@@ -70,13 +70,13 @@ async function addNotesToDb(notes) {
 
         // Iterate through each note and insert into the 'notes' table
         const insertPromises = notes.map(async (note) => {
-            const { user, comment, replyId, position } = note;
+            const { user, comment, replyId, position, htmlComment} = note;
 
             // SQL query to insert a note
-            const query = 'INSERT INTO notes (user, comment, reply_id, position) VALUES (?, ?, ?, ?)';
+            const query = 'INSERT INTO notes (user, comment, reply_id, position, html_comment) VALUES (?, ?, ?, ?, ?)';
 
             // Execute the query
-            await connection.execute(query, [user, comment, replyId, position]);
+            await connection.execute(query, [user, comment, replyId, position, htmlComment]);
         });
 
         // Wait for all insert operations to complete
@@ -164,6 +164,7 @@ async function updateNotesInDb(scrapedNotes) {
          * @property {string} user - The username associated with the note.
          * @property {number} replyId - The ID of the reply to which the note belongs.
          * @property {number} position - The position of the note starting from 0.
+         * @property {string} htmlComment - The html content of the comment.
          */
         // @type {Note}
         const existingNotes = existingNotesRow.map((row) => ({
@@ -174,27 +175,27 @@ async function updateNotesInDb(scrapedNotes) {
         }));
 
         // Check the notes that are in common
-        const commonNotes = existingNotes.filter(oldNote => scrapedNotes.find(scrapedNote => areObjectsEqual(oldNote, scrapedNote))); 
+        const commonNotes = existingNotes.filter(oldNote => scrapedNotes.find(scrapedNote => areNotesEqual(oldNote, scrapedNote)));
         // Check what notes are new
-        const newNotes = scrapedNotes.filter(scrapedNote => !existingNotes.some(oldNote => areObjectsEqual(oldNote, scrapedNote)));
+        const newNotes = scrapedNotes.filter(scrapedNote => !existingNotes.some(oldNote => areNotesEqual(oldNote, scrapedNote)));
 
         // If there are no new notes there's nothing to insert
-        if(newNotes.length == 0){
+        if (newNotes.length == 0) {
             return;
         }
         // Check if no existing notes have been deleted
-        if(commonNotes.length == existingNotes.length){
+        if (commonNotes.length == existingNotes.length) {
             // Insert new notes, positions should be OK
             const pause = true;
             await addNotesToDb(newNotes)
 
-        } else if(existingNotes.length > commonNotes.length){
+        } else if (existingNotes.length > commonNotes.length) {
             // Notes have been deleted update positions
             console.log(`notes have been deleted on the website`);
             const lastPosition = existingNotes.slice(-1).position;
             console.log(`last position ${lastPosition}`);
             console.log(`double check common notes last position ${commonNotes.slice(-1).position}`);
-            const updatedNotes = newNotes.map((n,i) => ({...n, position:lastPosition+i+1}))
+            const updatedNotes = newNotes.map((n, i) => ({ ...n, position: lastPosition + i + 1 }))
             throw new Error("Double check before updatding modified notes");
             await addNotesToDb(updatedNotes)
         }
@@ -212,6 +213,36 @@ async function updateNotesInDb(scrapedNotes) {
 
 
 
+/**
+ * Compare two Note objects.
+ * @param {Note} note1 - The first object.
+ * @param {Note} note2 - The second object.
+ * @returns {boolean} - True if the Notes have the same values
+ */
+function areNotesEqual(note1, note2) {
+    /**
+     * @typedef {Object} Note
+     * @property {string} comment - The content of the note.
+     * @property {string} user - The username associated with the note.
+     * @property {number} replyId - The ID of the reply to which the note belongs.
+     * @property {number} position - The position of the note starting from 0.
+     * @property {string} htmlComment - The html content of the comment.
+     */
+    
+    // Check everything but htmlComment since not all db rows have that value yet
+    const keys = ["comment", "user", "replyId", "position"]
+
+    // Iterate through the specified keys
+    for (let key of keys) {
+      // Compare values for each key
+      if (note1[key] !== note2[key]) {
+        return false; // Return false if any value is different
+      }
+    }
+
+    // If all key values are the same, return true
+    return true;
+}
 /**
  * Compare two objects for equality of keys and values.
  * @param {Object} obj1 - The first object.

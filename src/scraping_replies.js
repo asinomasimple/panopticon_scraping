@@ -6,7 +6,7 @@ const { processReply } = require('./process_replies');
  * Updates exisiting replies and then scrapes new ones
  */
 async function execute() {
-    await updateLatestReplies(50)
+    await updateLatestReplies(10)
     // await scrapeNewReplies(20, 2)
 }
 /**
