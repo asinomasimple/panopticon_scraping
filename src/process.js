@@ -138,6 +138,20 @@ async function processTopic(response) {
             topicType: 'deleted'
         }
     }
+    // Deal with 500 topics
+    if (response.status === 500) {
+        const parts = responseUrl.split("/");
+        return {
+            id: parts[parts.length - 2],
+            user: '',
+            title: '',
+            date: '',
+            post: '',
+            status: response.status,
+            responseUrl: responseUrl,
+            topicType: 'broken'
+        }
+    }
 
     const $ = cheerio.load(response.data);
 
@@ -152,11 +166,11 @@ async function processTopic(response) {
 
     // Check the topic type
     let topicType = getTopicType(ntUrl, urlHasTitle, h1);
-    
+
     // Check if there is an <li> with class "news"
     // Empty topics : https://qbn.com/topics/549241/, https://qbn.com/topics/482702/
     const liNews = $('li.news');
-    if(liNews == 0){
+    if (liNews == 0) {
         // Asign it NT type 
         topicType = TYPE_NT;
     }
@@ -176,7 +190,7 @@ async function processTopic(response) {
         // The hidden thread (id: 763977) doesn't have an html title but has a url title
         // The '/////' thread (id: 697764) has an html title but doesn't have a url title
         // https://qbn.com/topics/67880/
-        title = h1 ? h1 : getTitleFromUrl(responseUrl);
+        title = h1 ? h1 : getTopicTitleFromUrl(responseUrl);
     }
 
 
@@ -256,9 +270,10 @@ async function scrapeProfile(url) {
 function processProfile(response) {
     // Return only status if status is 404
     const responseStatus = response.status;
-    if (responseStatus === 404 || responseStatus === 403) {
+    if (responseStatus === 404 || responseStatus === 403 || responseStatus === 500) {
         return { status: responseStatus }
     }
+
 
     const $ = cheerio.load(response.data)
     // Check if user is deleted
@@ -329,23 +344,21 @@ function getUrlHasTitle(url) {
  * 
  * @param {string} url - The topic page url
  */
-function getTitleFromUrl(url) {
+function getTopicTitleFromUrl(url) {
     // Define a regular expression to match the URL pattern.
-
-    const urlPattern = /^https:\/\/(www\.)?qbn\.com\/topics\/(\d+)\/?(\?.*)?$/;
+    const regex = /(?:www\.)?qbn\.com\/topics\/([^\/]+)/;
     // Attempt to match the URL against the pattern.
-    const match = url.match(urlPattern);
+    const match = url.match(regex)
 
     if (match) {
-        // If there is a match, check if the URL ends with "/topics/123/".
-        const isTopicIdURL = url.endsWith("/topics/" + match[2] + "/");
-
-        if (isTopicIdURL) {
-            // Return the topic ID as a number.
-            return parseInt(match[2], 10);
+        const topicOrID = match[1];
+        // Check if the extracted string contains a dash ("-")
+        if (topicOrID.includes("-")) {
+            // If it does, return the text after the ID and the first dash
+            return topicOrID.split('-').slice(1).join('-');
         } else {
-            // Return the text that follows the topic ID.
-            return match[3];
+            // If no dash is found, return the ID
+            return topicOrID;
         }
     }
 

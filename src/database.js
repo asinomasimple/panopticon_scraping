@@ -94,7 +94,7 @@ async function addTopicsToDb(data) {
 
                 // User profile topic
                 if (d.topicType === 'profile') {
-                    console.log(`insert profile '${d.user}' status ${d.profile.status}`)
+                    console.log(`insert profile '${d.user}' rip: ${d.profile.rip}, uncertified: ${d.profile.uncertified}`)
                     const profile = d.profile;
                     // If profile is deleted only insert rip dates
                     if (profile.rip !== undefined && profile.rip !== "") {
@@ -103,14 +103,14 @@ async function addTopicsToDb(data) {
                         await connection.execute(profileInsertSql, profileValues);
                     }
                     // Insert 404 and 403 status
-                    else if (profile.status === 404 || profile.status === 403) {
+                    else if (profile.status === 404 || profile.status === 403 || profile.status == 500) {
                         const profileInsertSql = 'INSERT INTO profiles (topic_id, status) VALUES (?, ?)';
                         const profileValues = [d.id, profile.status];
                         await connection.execute(profileInsertSql, profileValues);
                     } else {
                         const profileInsertSql = 'INSERT INTO profiles (topic_id, name, location, url, avatar, uncertified, endorsement_status, endorsed_by, bio, rip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-                        const uncertified = d.uncertified == "uncertified" ? 1 : 0;
-                        const profileValues = [d.id, profile.name, profile.location, profile.url, profile.avatar, profile.uncertified, profile.endorsementStatus, profile.endorsedBy, profile.bio, ''];
+                        const uncertified = d.profile.uncertified == "uncertified" ? 1 : 0;
+                        const profileValues = [d.id, profile.name, profile.location, profile.url, profile.avatar, uncertified, profile.endorsementStatus, profile.endorsedBy, profile.bio, ''];
                         await connection.execute(profileInsertSql, profileValues);
                     }
                 }
@@ -151,7 +151,7 @@ async function addProfilesToDb(data) {
                 await connection.execute(profileInsertSql, profileValues);
             }
             // Insert 404 and 403 status
-            else if (profile.status === 404 || profile.status === 403) {
+            else if (profile.status === 404 || profile.status === 403 || profile.status == 500) {
                 const profileInsertSql = 'INSERT INTO profiles (topic_id, status) VALUES (?, ?)';
                 const profileValues = [topicId, profile.status];
                 await connection.execute(profileInsertSql, profileValues);

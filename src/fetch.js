@@ -18,7 +18,7 @@ async function fetchPage(url) {
         // Return 404 errors, we also want to store deleted pages
         // 403 erros for profile pages like '/services/'
         const status = error.response.status
-        if (status === 404 || status == 403) {
+        if (status === 404 || status == 403 || status == 500) {
             return error.response;
         }
 

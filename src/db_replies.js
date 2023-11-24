@@ -84,7 +84,7 @@ async function addNotesToDb(notes) {
 
         // Commit the transaction
         await connection.commit();
-        console.log(`${notes.length} notes added successfully.`);
+        console.log(`${notes.length} notes added successfully for ${notes[0].replyId}.`);
 
     } catch (error) {
         console.error(`Error adding notes to database.`);
@@ -187,7 +187,9 @@ async function updateNotesInDb(scrapedNotes) {
         if (commonNotes.length == existingNotes.length) {
             // Insert new notes, positions should be OK
             const pause = true;
+            console.log("Add notes to db....")
             await addNotesToDb(newNotes)
+            console.log("... done adding notes to db")
 
         } else if (existingNotes.length > commonNotes.length) {
             // Notes have been deleted update positions
@@ -201,6 +203,7 @@ async function updateNotesInDb(scrapedNotes) {
         }
 
         // No need to commit because where only selecting notes.
+        return
 
     } catch (error) {
         console.error(`Error checking notes on database.`);

@@ -6,8 +6,8 @@ const { processReply } = require('./process_replies');
  * Updates exisiting replies and then scrapes new ones
  */
 async function execute() {
-    await updateLatestReplies(10)
-    // await scrapeNewReplies(20, 2)
+    await updateLatestReplies(50)
+    await scrapeNewReplies(10, 2)
 }
 /**
  * Scrapes new replies from website
@@ -29,7 +29,24 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
     try {
         // Fetch the replies from the website
         const startId = lastId + 1;
-        const fetched = await autoFetchPagesById('https:qbn.com/reply/', startId, maxTotalRequests, maxConsecutive404)
+        //const fetched = await autoFetchPagesById('https:qbn.com/reply/', startId, maxTotalRequests, maxConsecutive404)
+        let fetched = [];
+
+        // Fetch until the results no longer match the maxTotalRequests
+        // Set a safety limit to avoid infinite loops
+        const safetyLimit = 5;
+        for (let i = 0; i < safetyLimit; i++) {
+            // Offset the start id for the loop to work
+            const startIdOffset = startId + (i * maxTotalRequests);
+
+            // Fetch the pages
+            const newResults = await autoFetchPagesById('https:qbn.com/reply/', startIdOffset, maxTotalRequests, maxConsecutive404)
+            fetched = fetched.concat(newResults);
+            if (newResults.length < maxTotalRequests) {
+                // Stop if new results are less than the desired quantity
+                break;
+            }
+        }
 
         // Process the fetched pages
         const dataPromises = fetched.map(data => processReply(data));
@@ -102,7 +119,7 @@ async function updateLatestReplies(amount) {
         throw error;
 
     } finally {
-        closePool();
+        // closePool();
     }
 }
 execute()
