@@ -81,12 +81,6 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
             if (response.status === 200) {
                 resultArray.push(response);
                 consecutive404Count = 0; // Reset consecutive 404 count
-
-            } else if (response.status === 404) {
-                // Normally 404 pages shouldn't get a response but an error
-                resultArray.push(response); // Add a marker for deleted page
-                consecutive404Count++;
-
             } else {
                 // Handle other HTTP status codes if needed
                 console.log(`Unexpected status code: ${response.status}`);
@@ -97,6 +91,7 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
         } catch (error) {
             // Handle the error and include the error response in the resultArray
             if (error.response && error.response.status === 404) {
+                totalRequests++;
                 resultArray.push(error.response); // Add a marker for deleted page
                 consecutive404Count++;
                 idToStart++;

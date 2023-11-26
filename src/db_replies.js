@@ -27,7 +27,7 @@ async function addRepliesToDb(replies) {
             // Destructure item
             const { id, status, date, user, topicId, topicTitle, post, notes, score, replyNumber } = reply;
 
-            if (replies.status == 404) {
+            if (status == 404) {
                 await connection.execute(
                     'INSERT INTO replies (id, status) VALUES (?, ?)',
                     [id, status]
@@ -42,7 +42,6 @@ async function addRepliesToDb(replies) {
         }
 
         await connection.commit();
-        console.log(`${replies.length} replies added successfully.`);
 
     } catch (error) {
         console.log(`Error adding replies to database.`)
@@ -84,7 +83,6 @@ async function addNotesToDb(notes) {
 
         // Commit the transaction
         await connection.commit();
-        console.log(`${notes.length} notes added successfully for ${notes[0].replyId}.`);
 
     } catch (error) {
         console.error(`Error adding notes to database.`);
@@ -126,7 +124,6 @@ async function updateRepliesInDb(replies) {
             }
         }
         await connection.commit();
-        console.log(`${replies.length} replies updated successfully.`);
 
     } catch (error) {
         console.error(`Error updating replies on database.`)
@@ -185,25 +182,28 @@ async function updateNotesInDb(scrapedNotes) {
         }
         // Check if no existing notes have been deleted
         if (commonNotes.length == existingNotes.length) {
+
             // Insert new notes, positions should be OK
-            const pause = true;
-            console.log("Add notes to db....")
-            await addNotesToDb(newNotes)
-            console.log("... done adding notes to db")
+            try{
+                await addNotesToDb(newNotes);
+
+            }catch(error){
+                throw error;
+            }
+            
 
         } else if (existingNotes.length > commonNotes.length) {
             // Notes have been deleted update positions
-            console.log(`notes have been deleted on the website`);
             const lastPosition = existingNotes.slice(-1).position;
-            console.log(`last position ${lastPosition}`);
-            console.log(`double check common notes last position ${commonNotes.slice(-1).position}`);
+            console.warn(`notes have been deleted on the website`);
+            console.warn(`last position ${lastPosition}`);
+            console.warn(`double check common notes last position ${commonNotes.slice(-1).position}`);
             const updatedNotes = newNotes.map((n, i) => ({ ...n, position: lastPosition + i + 1 }))
             throw new Error("Double check before updatding modified notes");
             await addNotesToDb(updatedNotes)
         }
 
         // No need to commit because where only selecting notes.
-        return
 
     } catch (error) {
         console.error(`Error checking notes on database.`);
@@ -213,7 +213,6 @@ async function updateNotesInDb(scrapedNotes) {
         connection.release();
     }
 }
-
 
 
 /**
@@ -294,7 +293,7 @@ async function getLastReplyId() {
             return lastId;
 
         } else {
-            console.log('No data in the replies table.');
+            console.warn('No data in the replies table.');
             return null;
         }
 
@@ -376,9 +375,8 @@ async function getLastReplyIdFromNotes() {
         // Extract the highest reply_id from the result
         const highestReplyId = rows[0].highestReplyId || 0;
 
-        console.log('Highest Reply ID:', highestReplyId);
-
         return highestReplyId;
+        
     } catch (error) {
         console.error('Error getting highest reply ID:', error.message);
         throw error;
@@ -422,6 +420,7 @@ function backupUpdateNotesAsJson() {
 function closePool() {
     POOL.end()
 }
+
 module.exports = {
     getLastReplyId,
     addRepliesToDb,
