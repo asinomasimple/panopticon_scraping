@@ -5,7 +5,7 @@ const { processReply } = require('./process_replies');
 /**
  * Updates exisiting replies and then scrapes new ones
  */
-async function execute() {
+async function updateAndScrapeReplies(){
     await updateLatestReplies(50)
     await scrapeNewReplies(50, 2)
 }
@@ -64,7 +64,7 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
         throw error;
 
     } finally {
-        closePool()
+       //closePool()
     }
 }
 
@@ -109,4 +109,7 @@ async function updateLatestReplies(amount) {
         // closePool();
     }
 }
-execute()
+
+module.exports = {
+    updateAndScrapeReplies
+};

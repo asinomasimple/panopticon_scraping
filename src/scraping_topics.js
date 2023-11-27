@@ -2,13 +2,16 @@ const { getLastTopicId, addTopicsToDb } = require('./db_topics');
 const { autoFetchPagesById } = require('./fetch');
 const { processTopic } = require('./process_topics');
 
+
 /**
  * Gets last reply from id
  * Fetches a specific amount of replies
  * Processes fetched replies
  * Add replies, nt, and profiles to database
  */
-async function execute() {
+exports.scrapeTopics = async () =>{
+    console.log(`Scraping new topics...`)
+
     // Get last id on database
     const lastId = await getLastTopicId();
     console.log(`lastTopicId ${lastId}`);
@@ -43,9 +46,10 @@ async function execute() {
 
     } catch (error) {
         throw error;
+
+    }finally{
+       // closePool();
     }
 
 }
-
-execute()
 

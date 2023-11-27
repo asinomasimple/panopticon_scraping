@@ -1,9 +1,14 @@
-const { database } = require('../config/config');
+require('dotenv').config(); // Load environment variables
 const mysql = require('mysql2/promise');
 
 // Create a pool
 // https://www.npmjs.com/package/mysql2#using-connection-pools
-const POOL = mysql.createPool({ connectionLimit: 10, ...database });
+const POOL = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE
+});
 
 //-----------------------------------------------------------------------
 //
@@ -69,7 +74,7 @@ async function addNotesToDb(notes) {
 
         // Iterate through each note and insert into the 'notes' table
         const insertPromises = notes.map(async (note) => {
-            const { user, comment, replyId, position, htmlComment} = note;
+            const { user, comment, replyId, position, htmlComment } = note;
 
             // SQL query to insert a note
             const query = 'INSERT INTO notes (user, comment, reply_id, position, html_comment) VALUES (?, ?, ?, ?, ?)';
@@ -184,13 +189,13 @@ async function updateNotesInDb(scrapedNotes) {
         if (commonNotes.length == existingNotes.length) {
 
             // Insert new notes, positions should be OK
-            try{
+            try {
                 await addNotesToDb(newNotes);
 
-            }catch(error){
+            } catch (error) {
                 throw error;
             }
-            
+
 
         } else if (existingNotes.length > commonNotes.length) {
             // Notes have been deleted update positions
@@ -230,16 +235,16 @@ function areNotesEqual(note1, note2) {
      * @property {number} position - The position of the note starting from 0.
      * @property {string} htmlComment - The html content of the comment.
      */
-    
+
     // Check everything but htmlComment since not all db rows have that value yet
     const keys = ["comment", "user", "replyId", "position"]
 
     // Iterate through the specified keys
     for (let key of keys) {
-      // Compare values for each key
-      if (note1[key] !== note2[key]) {
-        return false; // Return false if any value is different
-      }
+        // Compare values for each key
+        if (note1[key] !== note2[key]) {
+            return false; // Return false if any value is different
+        }
     }
 
     // If all key values are the same, return true
@@ -376,7 +381,7 @@ async function getLastReplyIdFromNotes() {
         const highestReplyId = rows[0].highestReplyId || 0;
 
         return highestReplyId;
-        
+
     } catch (error) {
         console.error('Error getting highest reply ID:', error.message);
         throw error;

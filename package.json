@@ -4,7 +4,9 @@
   "description": "A web scraping service.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "deploy:topics": "gcloud functions deploy scrapeTopics --runtime nodejs20 --trigger-topic scrape-topic-trigger --region us-central1",
+    "deploy:replies": "gcloud functions deploy scrapeReplies --runtime nodejs20 --trigger-topic scrape-replies-trigger --region us-central1"
   },
   "keywords": [
     "scraping"
@@ -14,6 +16,8 @@
   "dependencies": {
     "axios": "^1.6.0",
     "cheerio": "^1.0.0-rc.12",
-    "mysql2": "^3.6.3"
+    "dotenv": "^16.3.1",
+    "mysql2": "^3.6.3",
+    "node-cron": "^3.0.3"
   }
 }
