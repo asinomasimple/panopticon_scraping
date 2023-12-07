@@ -37,7 +37,7 @@ exports.scrapeTopics = async () =>{
         // Process the fetched topics
         const processedDataPromises = fetched.map(data => processTopic(data));
         const processedData = await Promise.all(processedDataPromises);
-        console.log(`Topic ids: ${processedData[0].id} to ${processedData.slice(-1).id}`)
+        console.log(`Topic ids: ${processedData[0].id} to ${processedData.slice(-1)[0].id}`)
 
         // Add topics to database
         const addedToDb = await addTopicsToDb(processedData);

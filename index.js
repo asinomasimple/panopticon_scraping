@@ -26,7 +26,12 @@ exports.example = async (message, context) => {
     console.log(`Received message: ${data}`);
 }
 
-// Schedule the job to run every 5 minutes
-cron.schedule('*/5 * * * *', () => {
-    start();
-});
+
+function startCron() {
+    // Schedule the job to run every 5 minutes
+    cron.schedule('*/5 * * * *', () => {
+        start();
+    });
+
+}
+startCron();

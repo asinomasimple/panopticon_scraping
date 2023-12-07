@@ -119,7 +119,8 @@ async function updateRepliesInDb(replies) {
 
         for (const reply of replies) {
 
-            if (reply.status === 400) {
+            if (reply.status === 404 || reply.status === 500) {
+
                 // Only update status to keep already scraped content
                 await connection.execute('UPDATE replies SET status = ? WHERE id = ?', [reply.status, reply.id]);
 

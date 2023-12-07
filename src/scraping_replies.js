@@ -31,6 +31,7 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
         const startId = lastId + 1;
 
         let fetched = await autoFetchPagesById('https:qbn.com/reply/', startId, maxTotalRequests, maxConsecutive404);
+        console.log(`fetched ${fetched.length} replies.`)
 
         // Process the fetched pages
         const dataPromises = fetched.map(data => processReply(data));
@@ -44,7 +45,7 @@ async function scrapeNewReplies(maxTotalRequests, maxConsecutive404) {
 
         // Add replies to database
         const addedToDb = await addRepliesToDb(data);
-        console.log(`${data.length} replies added to database.`)
+        console.log(`Added ${data.length} replies to database.`)
 
         // Extract notes from data
         const notes = data.filter(d => d.notes != null)
@@ -91,6 +92,8 @@ async function updateLatestReplies(amount) {
         // Extract notes from data
         const notes = data.filter(d => d.notes != null)
             .map(d => d.notes);
+        
+        console.log(`Extracted notes ${notes.length}`)
 
         // Update replies in db (status & score)
         const updatedOnDb = await updateRepliesInDb(data);
