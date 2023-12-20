@@ -1,7 +1,50 @@
-const { getLastReplyId, addRepliesToDb } = require('../src/database');
-const { autoFetchPagesById } = require('../src/fetch');
-const { processReply } = require('../src/process');
-const axios = require('axios');
+const { getLastReplyId, addRepliesToDb, addNotesToDb, getLatestNon404RepliesIds, updateRepliesInDb, updateNotesInDb, closePool } = require('../src/db_replies');
+const { autoFetchPagesById, fetchPagesFromArray } = require('../src/fetch');
+const { processReply } = require('../src/process_replies');
+
+
+
+async function updateReplies(){
+    const start = 4081247;
+    const end = 4081266;
+    const ids =  Array.from({ length: end - start + 1 }, (_, index) => start + index);
+
+    try {
+
+        // Fetch urls
+        const fetched = await fetchPagesFromArray(ids.map(v => `https://qbn.com/reply/${v}/`));
+        console.log("fetched replies")
+
+        // Process fetched pages
+        const dataPromises = fetched.map(d => processReply(d));
+        const data = await Promise.all(dataPromises);
+        console.log("processed replies")
+
+        // Extract notes from data
+        const notes = data.filter(d => d.notes != null)
+            .map(d => d.notes);
+        
+        console.log(`Extracted notes ${notes.length}`)
+
+        // Update replies in db (status & score)
+        const updatedOnDb = await updateRepliesInDb(data);
+
+        // Update notes in db
+        if (notes.length > 0) {
+            const notesPromises = notes.map(d => updateNotesInDb(d));
+            const updatedNotes = await Promise.all(notesPromises);
+        }
+        console.info(`... done updating replies.`)
+
+    } catch (error) {
+        throw error;
+
+    } finally {
+        // closePool();
+    }
+
+}
+
 
 /**
  * Entry 
@@ -49,5 +92,5 @@ async function fetchSingleReply() {
     }
 }
 
-testScrapeReplies()
 
+updateReplies()
