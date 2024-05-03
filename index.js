@@ -1,4 +1,4 @@
-const { updateAndScrapeReplies } = require('./src/scraping_replies.js');
+const { updateAndScrapeReplies, updateLatestReplies , scrapeNewReplies} = require('./src/scraping_replies.js');
 const { scrapeTopics: importTopics } = require('./src/scraping_topics.js')
 const cron = require('node-cron');
 // npm start
@@ -9,6 +9,14 @@ async function start() {
     console.log(`start ${new Date()}`)
     await importTopics();
     await updateAndScrapeReplies();
+    console.log(`___end`)
+}
+
+async function getUpToDate(){
+    console.log(`getUpToDate ${new Date()}`)
+     await importTopics();
+    // await updateLatestReplies(50);
+    await scrapeNewReplies(50, 2)
     console.log(`___end`)
 }
 
@@ -34,4 +42,4 @@ function startCron() {
     });
 
 }
-startCron();
+startCron()

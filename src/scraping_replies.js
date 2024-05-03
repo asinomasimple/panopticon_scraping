@@ -114,5 +114,7 @@ async function updateLatestReplies(amount) {
 }
 
 module.exports = {
-    updateAndScrapeReplies
+    updateAndScrapeReplies,
+    scrapeNewReplies,
+    updateLatestReplies
 };
