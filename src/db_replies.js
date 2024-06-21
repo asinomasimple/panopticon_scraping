@@ -200,12 +200,11 @@ async function updateNotesInDb(scrapedNotes) {
 
         } else if (existingNotes.length > commonNotes.length) {
             // Notes have been deleted update positions
-            const lastPosition = existingNotes.slice(-1).position;
-            console.warn(`notes have been deleted on the website`);
+            const lastNote = existingNotes.slice(-1);
+            const lastPosition = lastNote[0].position;
+            console.warn(`notes for reply ${replyId} have been deleted on the website`);
             console.warn(`last position ${lastPosition}`);
-            console.warn(`double check common notes last position ${commonNotes.slice(-1).position}`);
             const updatedNotes = newNotes.map((n, i) => ({ ...n, position: lastPosition + i + 1 }))
-            throw new Error("Double check before updatding modified notes");
             await addNotesToDb(updatedNotes)
         }
 

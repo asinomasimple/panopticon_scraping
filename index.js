@@ -36,6 +36,7 @@ exports.example = async (message, context) => {
 
 
 function startCron() {
+     getUpToDate();
     // Schedule the job to run every 5 minutes
     cron.schedule('*/5 * * * *', () => {
         start();
