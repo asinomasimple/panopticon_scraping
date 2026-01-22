@@ -1,4 +1,11 @@
 const axios = require('axios');
+const https = require('https');
+
+// Create an https agent that doesn't reject unauthorized certificates
+// This is needed because qbn.com has an incomplete SSL certificate chain
+const httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+});
 
 /**
  * Fetches pages within a specified range and returns an array of fetched responses.
@@ -8,7 +15,7 @@ const axios = require('axios');
 async function fetchPage(url) {
     try {
 
-        const response = await axios.get(url);
+        const response = await axios.get(url, { httpsAgent });
         return response;
 
     } catch (error) {
@@ -42,7 +49,7 @@ async function fetchPages(baseUrl, startId, maxId) {
 
         try {
             // Make a GET request to the url
-            const response = await axios.get(url);
+            const response = await axios.get(url, { httpsAgent });
 
             // Add the page response object to the scrapedData array
             fetchedData.push(response);
@@ -75,7 +82,7 @@ async function autoFetchPagesById(baseUrl, idToStart, maxTotalRequests, maxConse
         const url = `${baseUrl}${idToStart}/`;
 
         try {
-            const response = await axios.get(url);
+            const response = await axios.get(url, { httpsAgent });
             totalRequests++;
 
             if (response.status === 200) {
@@ -133,7 +140,7 @@ async function fetchPagesFromArray(urls) {
 
     for (const url of urls) {
         try {
-            const response = await axios.get(url);
+            const response = await axios.get(url, { httpsAgent });
 
             // Add the topicData object to the scrapedData array
             fetchedData.push(response);
