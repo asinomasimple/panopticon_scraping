@@ -1,0 +1,58 @@
+start Mon Jan 13 2025 21:30:00 GMT+0100 (Central European Standard Time)
+Scraping new topics...
+lastTopicId 777776
+fetched 0 new topic.
+updating latest 50 replies...
+fetched replies
+processed replies
+Extracted notes 30
+... done updating replies.
+Scraping new replies...
+Last reply id in database 4136931.
+fetched 1 replies.
+Error adding replies to database.
+An error occurred when scraping new replies: Estart Mon Jan 13 2025 21:35:00 GMT+0100 (Central European Standard Time)
+Scraping new topics...
+lastTopicId 777776
+fetched 0 new topic.
+updating latest 50 replies...
+fetched replies
+processed replies
+Extracted notes 31
+... done updating replies.
+Scraping new replies...
+Last reply id in database 4136932.
+fetched 1 replies.
+Error adding replies to database.
+An error occurred when scraping new replies: Error: Duplicate entry '4136933' for key 'PRIMARY'
+    at PromisePoolConnection.execute (/home/orazal/workspace/panopticon_scraping/node_modules/mysql2/promise.js:112:22)
+    at addRepliesToDb (/home/orazal/workspace/panopticon_scraping/src/db_replies.js:42:34)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async scrapeNewReplies (/home/orazal/workspace/panopticon_scraping/src/scraping_replies.js:47:27)
+    at async updateAndScrapeReplies (/home/orazal/workspace/panopticon_scraping/src/scraping_replies.js:10:5)
+    at async start (/home/orazal/workspace/panopticon_scraping/index.js:11:5) {
+  code: 'ER_DUP_ENTRY',
+  errno: 1062,
+  sql: 'INSERT INTO replies (id, status, created, user, topic_id, topic_title, post, notes, score, reply_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  sqlState: '23000',
+  sqlMessage: "Duplicate entry '4136933' for key 'PRIMARY'"
+}
+node:internal/process/promises:391
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+Error: Duplicate entry '4136933' for key 'PRIMARY'
+    at PromisePoolConnection.execute (/home/orazal/workspace/panopticon_scraping/node_modules/mysql2/promise.js:112:22)
+    at addRepliesToDb (/home/orazal/workspace/panopticon_scraping/src/db_replies.js:42:34)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async scrapeNewReplies (/home/orazal/workspace/panopticon_scraping/src/scraping_replies.js:47:27)
+    at async updateAndScrapeReplies (/home/orazal/workspace/panopticon_scraping/src/scraping_replies.js:10:5)
+    at async start (/home/orazal/workspace/panopticon_scraping/index.js:11:5) {
+  code: 'ER_DUP_ENTRY',
+  errno: 1062,
+  sql: 'INSERT INTO replies (id, status, created, user, topic_id, topic_title, post, notes, score, reply_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  sqlState: '23000',
+  sqlMessage: "Duplicate entry '4136933' for key 'PRIMARY'"
+}
+
+Node.js v20.18.1

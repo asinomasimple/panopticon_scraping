@@ -61,3 +61,4 @@ function startCron() {
 
 // Initialize the cron schedule
 startCron();
+//getUpToDate();
